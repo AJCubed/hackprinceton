@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface Conversation {
   chatId: string
@@ -30,6 +30,9 @@ export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [messageInput, setMessageInput] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchConversations()
@@ -41,6 +44,11 @@ export default function MessagesPage() {
     }
   }, [selectedConversation])
 
+  useEffect(() => {
+    // Scroll to bottom when messages change
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+  }, [messages])
+
   async function fetchConversations() {
     try {
       setLoading(true)
@@ -51,6 +59,7 @@ export default function MessagesPage() {
       console.error('Error fetching conversations:', error)
     } finally {
       setLoading(false)
+      
     }
   }
 
@@ -68,6 +77,36 @@ export default function MessagesPage() {
     } finally {
       setLoadingMessages(false)
     }
+  }
+
+  async function sendMessage(recipient: string, message: string) {
+    if (!message.trim()) return
+    
+    try {
+      setSendingMessage(true)
+      const response = await fetch(`/api/messages?recipient=${encodeURIComponent(recipient)}&message=${encodeURIComponent(message)}`, {
+        method: 'POST'
+      })
+      const data = await response.json()
+      console.log(data)
+      
+      // Clear the input and refresh messages
+      setMessageInput('')
+      if (selectedConversation) {
+        await fetchMessages(selectedConversation)
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+  
+  async function handleSendMessage(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selectedConversation || !messageInput.trim()) return
+    
+    await sendMessage(selectedConversation.sender, messageInput)
   }
 
   function formatDate(dateString: string) {
@@ -190,6 +229,28 @@ export default function MessagesPage() {
                   </div>
                 ))
               )}
+              <div ref={messagesEndRef} />
+            </div>
+            
+            {/* Message Input */}
+            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800">
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  placeholder="Type a message..."
+                  disabled={sendingMessage}
+                  className="flex-1 px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={sendingMessage || !messageInput.trim()}
+                  className="px-6 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {sendingMessage ? 'Sending...' : 'Send'}
+                </button>
+              </form>
             </div>
           </>
         ) : (

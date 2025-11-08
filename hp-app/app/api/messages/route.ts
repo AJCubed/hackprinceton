@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
   try {
     const filter: any = {
       excludeOwnMessages: false,
-      limit: 100
+      limit: 100,
+      since: new Date('2025-01-01')
     }
     
     if (chatId) {
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest) {
         isFromMe: msg.isFromMe,
         isRead: msg.isRead
       }))
-    
+    console.log(messages)
     return NextResponse.json({ messages })
   } catch (error) {
     console.error('Error fetching messages:', error)
@@ -68,5 +69,23 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+
+export async function POST(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams
+  const recipient = searchParams.get('recipient')
+  const message = searchParams.get('message')
+
+  if (!recipient || !message) {
+    return NextResponse.json(
+      { error: 'recipient and message parameters are required' },
+      { status: 400 }
+    )
+  }
+
+  const sdk = await getSDK()
+  await sdk.send(recipient, message)
+  return NextResponse.json({ message: 'Message sent successfully' })
 }
 
