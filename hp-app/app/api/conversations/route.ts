@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { Message } from '@photon-ai/imessage-kit'
+import { lookupContactName, ensureContactsLoaded } from '../contacts'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,6 +22,9 @@ export async function GET() {
   const sdk = await getSDK()
   
   try {
+    // Load contacts
+    await ensureContactsLoaded()
+
     // Get recent messages (limit to 1000 to get a good sample)
     const result = await sdk.getMessages({
       excludeOwnMessages: false,
@@ -67,20 +71,27 @@ export async function GET() {
     }
     
     // Convert to array and sort by last message date
-    const conversations = Array.from(conversationsMap.values())
+    const top = Array.from(conversationsMap.values())
       .sort((a, b) => b.lastMessage.date.getTime() - a.lastMessage.date.getTime())
       .slice(0, 10) // Top 10
-      .map(conv => ({
-        chatId: conv.chatId,
-        sender: conv.sender,
-        senderName: conv.senderName,
-        lastMessage: {
-          text: conv.lastMessage.text,
-          date: conv.lastMessage.date.toISOString(),
-          isFromMe: conv.lastMessage.isFromMe
-        },
-        unreadCount: conv.unreadCount
-      }))
+
+    // Merge contact info with contact names
+    const conversations = await Promise.all(
+      top.map(async (conv) => {
+        const contactName = await lookupContactName(conv.sender)
+        return {
+          chatId: conv.chatId,
+          sender: conv.sender,
+          senderName: contactName || conv.senderName,
+          lastMessage: {
+            text: conv.lastMessage.text,
+            date: conv.lastMessage.date.toISOString(),
+            isFromMe: conv.lastMessage.isFromMe
+          },
+          unreadCount: conv.unreadCount
+        }
+      })
+    )
     
     return NextResponse.json({ conversations })
   } catch (error) {
