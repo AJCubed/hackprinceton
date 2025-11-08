@@ -1,3 +1,8 @@
+# Description
+Local web app that reads from iMessages and Contacts to create an integrated interface for users to approach their relationships and communication in a more mindful way. 
+Helps users identify potentially toxic relationships or harmful thought patterns, and instead find ways to grow, connect with others, and improve their mental health.
+
+---
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

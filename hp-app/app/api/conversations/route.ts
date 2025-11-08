@@ -84,7 +84,7 @@ export async function GET() {
           sender: conv.sender,
           senderName: contactName || conv.senderName,
           lastMessage: {
-            text: conv.lastMessage.text,
+            text: conv.lastMessage.text || '',  // Convert null to empty string
             date: conv.lastMessage.date.toISOString(),
             isFromMe: conv.lastMessage.isFromMe
           },
