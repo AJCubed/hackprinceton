@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Send, Sparkles, Clock, Gift, Smile } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { MessageInsights } from "@/components/message-insights"
 import { AIAssistant } from "@/components/ai-assistant"
 import { Message } from "../lib/types"
@@ -27,9 +27,20 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
   }, [conversationId])
 
   useEffect(() => {
-    // Scroll to bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: "auto" })
+    // Scroll to bottom when messages change or load
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "auto" })
+    }
   }, [messages])
+
+  useEffect(() => {
+    // Ensure we scroll to bottom immediately after loading state changes
+    if (!loading && messages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "auto" })
+      }, 0)
+    }
+  }, [loading, messages.length])
 
   const fetchMessages = async () => {
     setLoading(true)
@@ -56,7 +67,7 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
 
       // Analyze conversation
       if (data.messages && data.messages.length > 0) {
-        const analysis = await analyzeConversation(conversationId, data.messages)
+        analyzeConversation(conversationId, data.messages);
         
       }
     } catch (error) {
@@ -163,22 +174,29 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
             </div>
 
             {/* Message Input */}
-            <div className="flex gap-2">
-              <Input
+            <div className="flex gap-2 items-end">
+              <Textarea
                 placeholder={`Message ${contactName}...`}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && handleSend()}
-                className="bg-muted border-muted"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSend()
+                  }
+                }}
+                className="bg-muted border-muted resize-none min-h-[40px] max-h-[120px]"
+                rows={1}
               />
               <Button
                 size="icon"
                 onClick={() => setShowAIAssistant(!showAIAssistant)}
                 variant={showAIAssistant ? "default" : "outline"}
+                className="shrink-0"
               >
                 <Sparkles className="w-4 h-4" />
               </Button>
-              <Button size="icon" onClick={handleSend}>
+              <Button size="icon" onClick={handleSend} className="shrink-0">
                 <Send className="w-4 h-4" />
               </Button>
             </div>
@@ -195,13 +213,16 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
                 recentMessages: messages.slice(-3).map(m => ({
                   id: m.id,
                   sender: m.isFromMe ? "user" : "contact",
-                  text: m.text,
+                  text: m.text || "",
                   timestamp: formatMessageTime(m.date)
                 })),
               }}
             />
           ) : (
-            <MessageInsights conversationId={conversationId} />
+            <MessageInsights 
+              conversationId={conversationId}
+              onSuggestMessage={(message) => setInputValue(message)}
+            />
           )}
         </div>
       </div>

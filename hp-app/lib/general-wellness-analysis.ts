@@ -7,10 +7,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { getConversation, updateAIAnalysis } from './db';
 import { normalizeChatId } from './utils';
 
-export async function analyzeConversation(
-  chatId: string,
-  conversation: Message[]
-): Promise<ConversationAnalysis> {
+export async function analyzeGeneralWellness(): Promise<ConversationAnalysis> {
   // Read existing data from database
   const normalizedChatId = normalizeChatId(chatId);
   const existingData = getConversation(normalizedChatId);
