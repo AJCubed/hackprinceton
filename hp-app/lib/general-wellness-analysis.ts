@@ -2,68 +2,40 @@
 
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { ConversationAnalysis, ConversationAnalysisSchema, Message } from './types';
+import { ConversationAnalysis, ConversationAnalysisSchema, GeneralWellnessAnalysis, GeneralWellnessAnalysisSchema, Message } from './types';
 import { anthropic } from '@ai-sdk/anthropic';
-import { getConversation, updateAIAnalysis } from './db';
+import { getAllConversations, getConversation, updateAIAnalysis, upsertWellnessEvaluation } from './db';
 import { normalizeChatId } from './utils';
 
-export async function analyzeGeneralWellness(): Promise<ConversationAnalysis> {
-  // Read existing data from database
-  const normalizedChatId = normalizeChatId(chatId);
-  const existingData = getConversation(normalizedChatId);
+export async function analyzeGeneralWellness(): Promise<GeneralWellnessAnalysis> {
   
-  // Build context from existing data
-  let contextPrompt = '';
-  if (existingData) {
-    if (existingData.aiAnalysis) {
-      contextPrompt += '\n\nPrevious Analysis:\n';
-      contextPrompt += `- Sentiment: ${existingData.aiAnalysis.sentiment}\n`;
-      contextPrompt += `- Positivity Score: ${existingData.aiAnalysis.positivity_score}\n`;
-      contextPrompt += `- Relationship Type: ${existingData.aiAnalysis.relationship_type}\n`;
-      contextPrompt += `- Previous Notes: ${existingData.aiAnalysis.notes}\n`;
-    }
+    //get all conversation analyses
+    const analyses = (await getAllConversations()).map(conv => conv.aiAnalysis).filter(analysis => analysis !== null);
+
+    //build context prompt
+    const contextPrompt = analyses.map(analysis => `
+    Sentiment: ${analysis.sentiment}
+    Positivity Score: ${analysis.positivity_score}
+    Relationship Type: ${analysis.relationship_type}
+    Notes: ${analysis.notes}
+    `).join('\n');
     
-    if (existingData.userNotes) {
-      contextPrompt += '\n\nUser Notes: ' + existingData.userNotes + '\n';
-    }
-    
-    if (existingData.birthday || existingData.organization || existingData.jobTitle) {
-      contextPrompt += '\n\nContact Info:\n';
-      if (existingData.senderName) contextPrompt += `- Name: ${existingData.senderName}\n`;
-      if (existingData.birthday) contextPrompt += `- Birthday: ${existingData.birthday}\n`;
-      if (existingData.organization) contextPrompt += `- Organization: ${existingData.organization}\n`;
-      if (existingData.jobTitle) contextPrompt += `- Job Title: ${existingData.jobTitle}\n`;
-    }
-  }
-
-  // Combine messages into a single prompt
-  const conversationText = conversation
-    .map(message => `${message.isFromMe ? 'You' : message.senderName || message.sender}: ${message.text || '(media/attachment)'} ${message.date}`)
-    .join('\n');
-
-  const prompt = `Analyze the following conversation and provide insights in accordance with the schema provided.
-  ${contextPrompt}
-  --------------------------------
-  Recent Conversation:
-  ${conversationText}
-
-  Please provide an updated analysis considering both the recent messages and any previous context. The current date is ${new Date().toISOString()}.`;
+    //build prompt
+    const prompt = `Analyze the following Conversation Analyses and provide a general wellness analysis in accordance with the schema provided. The current date is ${new Date().toISOString()}. ${contextPrompt}`;
 
   const {object, warnings, response} = await generateObject({
     model: anthropic('claude-haiku-4-5'),
-    schema: ConversationAnalysisSchema,
+    schema: GeneralWellnessAnalysisSchema,
     prompt,
   });
 
-  
+  console.log('Wellness Analysis:', object);
 
-  // Write analysis results back to database
   try {
-    updateAIAnalysis(normalizedChatId, object);
-    console.log('[Analysis] Successfully saved analysis to database for chat:', normalizedChatId);
+    await upsertWellnessEvaluation(object);
+    console.log('Successfully saved Wellness Evaluation to database');
   } catch (error) {
-    console.error('[Analysis] Error saving to database:', error);
-    // Don't fail the analysis if DB write fails
+    console.error('Error saving Wellness Evaluation to database:', error);
   }
 
   return object;

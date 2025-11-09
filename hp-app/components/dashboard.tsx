@@ -12,25 +12,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
 } from "recharts"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, Heart, Users, MessageSquare, Target, Calendar, ArrowRight } from "lucide-react"
+import { TrendingUp, Heart, Users, MessageSquare, Target, Calendar, ArrowRight, Sparkles, AlertTriangle, Lightbulb, Star, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const COMMUNICATION_STYLE = [
-  { category: "Empathy", value: 85 },
-  { category: "Directness", value: 65 },
-  { category: "Humor", value: 78 },
-  { category: "Responsiveness", value: 92 },
-  { category: "Initiative", value: 72 },
-  { category: "Conflict Resolution", value: 58 },
-]
+import { GeneralWellnessAnalysis } from "@/lib/types"
+import { analyzeGeneralWellness } from "@/lib/general-wellness-analysis"
 
 interface AnalyticsData {
   messagesSent: number
@@ -47,7 +35,8 @@ interface DashboardProps {
 
 export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState("week")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true);
+  const [wellnessAnalysis, setWellnessAnalysis] = useState<GeneralWellnessAnalysis | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData>({
     messagesSent: 0,
     avgSentiment: 0,
@@ -60,6 +49,7 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
 
   useEffect(() => {
     fetchAnalytics()
+    beginWellnessAnalysis();
   }, [])
 
   const fetchAnalytics = async () => {
@@ -72,6 +62,11 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
     } finally {
       setLoading(false)
     }
+  }
+
+  const beginWellnessAnalysis = async () => {
+    const analysis = await analyzeGeneralWellness();
+    setWellnessAnalysis(analysis);
   }
 
   const getSentimentColor = (sentiment: string) => {
@@ -95,7 +90,8 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center bg-background gap-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
         <p className="text-muted-foreground">Loading analytics...</p>
       </div>
     )
@@ -111,8 +107,9 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
 
       {/* Main Content */}
       <div className="p-8 space-y-8">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-4 gap-4">
+
+         {/* Key Metrics */}
+         <div className="grid grid-cols-4 gap-4">
           <Card className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-900/30 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-default">
             <div className="flex items-start justify-between">
               <div>
@@ -164,8 +161,70 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
           </Card>
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-2 gap-6">
+        {/* Wellness Score - Prominent at top */}
+        <Card className="p-8 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-pink-950/20 border-indigo-200 dark:border-indigo-900/30">
+          <h2 className="text-2xl font-bold text-center text-foreground mb-6">Overall Wellness Score</h2>
+          {wellnessAnalysis ? (
+            <div className="flex flex-col items-center justify-center">
+              <div className="relative w-56 h-56">
+                {/* Circular Progress */}
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="112"
+                    cy="112"
+                    r="100"
+                    stroke="currentColor"
+                    strokeWidth="16"
+                    fill="none"
+                    className="text-gray-200 dark:text-gray-700"
+                  />
+                  <circle
+                    cx="112"
+                    cy="112"
+                    r="100"
+                    stroke="currentColor"
+                    strokeWidth="16"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 100}`}
+                    strokeDashoffset={`${2 * Math.PI * 100 * (1 - wellnessAnalysis.wellness_score / 100)}`}
+                    className={cn(
+                      "transition-all duration-1000",
+                      wellnessAnalysis.wellness_score >= 70 ? "text-green-500" :
+                      wellnessAnalysis.wellness_score >= 40 ? "text-amber-500" :
+                      "text-red-500"
+                    )}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-6xl font-bold text-foreground">{wellnessAnalysis.wellness_score}</span>
+                  <span className="text-sm text-muted-foreground mt-1">out of 100</span>
+                </div>
+              </div>
+              <p className={cn(
+                "text-lg font-bold mt-6",
+                wellnessAnalysis.wellness_score >= 70 ? "text-green-600 dark:text-green-400" :
+                wellnessAnalysis.wellness_score >= 40 ? "text-amber-600 dark:text-amber-400" :
+                "text-red-600 dark:text-red-400"
+              )}>
+                {wellnessAnalysis.wellness_score >= 70 ? "Excellent Health" :
+                 wellnessAnalysis.wellness_score >= 40 ? "Good Health" : "Needs Attention"}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2 text-center max-w-md">
+                Your overall communication wellness based on recent message patterns and relationships
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Loader2 className="w-12 h-12 text-primary animate-spin" />
+              <p className="text-muted-foreground">Analyzing your wellness...</p>
+            </div>
+          )}
+        </Card>
+
+       
+        {/* Charts & Top Contacts Section */}
+        <div className="grid grid-cols-3 gap-6">
           {/* Activity Chart */}
           <Card className="p-6 bg-card border-border">
             <h3 className="text-lg font-semibold text-foreground mb-4">Weekly Activity</h3>
@@ -208,28 +267,6 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
                   ))}
                 </Pie>
               </PieChart>
-            </ResponsiveContainer>
-          </Card>
-        </div>
-
-        {/* Communication Style & Top Contacts */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* Communication Style Radar */}
-          <Card className="p-6 bg-card border-border">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Communication Style</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <RadarChart data={COMMUNICATION_STYLE}>
-                <PolarGrid stroke="var(--color-border)" />
-                <PolarAngleAxis dataKey="category" stroke="var(--color-muted-foreground)" />
-                <PolarRadiusAxis stroke="var(--color-muted-foreground)" />
-                <Radar
-                  name="Score"
-                  dataKey="value"
-                  stroke="var(--color-primary)"
-                  fill="var(--color-primary)"
-                  fillOpacity={0.6}
-                />
-              </RadarChart>
             </ResponsiveContainer>
           </Card>
 
@@ -285,6 +322,158 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
             </div>
           </Card>
         </div>
+
+        {/* AI Analysis Section */}
+        <>
+          {/* Section Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <Sparkles className="w-6 h-6 text-primary" />
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">AI-Powered Wellness Analysis</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Personalized insights based on your communication patterns
+              </p>
+            </div>
+          </div>
+
+          {/* Wellness Insights */}
+          {wellnessAnalysis ? (
+            <div className="grid grid-cols-3 gap-6">
+            {/* Compliments */}
+            <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-900/30">
+              <div className="flex items-center gap-2 mb-4">
+                <Star className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <h3 className="text-lg font-semibold text-foreground">Strengths</h3>
+              </div>
+              <div className="space-y-3">
+                {wellnessAnalysis.compliments.length > 0 ? (
+                  wellnessAnalysis.compliments.map((compliment, idx) => (
+                    <div key={idx} className="p-3 bg-white/50 dark:bg-black/20 rounded-lg">
+                      <p className="text-sm font-semibold text-green-900 dark:text-green-300 mb-1">
+                        {compliment.title}
+                      </p>
+                      <p className="text-xs text-green-700 dark:text-green-400">
+                        {compliment.description}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No compliments available yet</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Recommendations */}
+            <Card className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-900/30">
+              <div className="flex items-center gap-2 mb-4">
+                <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-lg font-semibold text-foreground">Recommendations</h3>
+              </div>
+              <div className="space-y-3">
+                {wellnessAnalysis.recommendations.length > 0 ? (
+                  wellnessAnalysis.recommendations.map((rec, idx) => (
+                    <div key={idx} className="p-3 bg-white/50 dark:bg-black/20 rounded-lg">
+                      <p className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                        {rec.title}
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-400">
+                        {rec.description}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recommendations available yet</p>
+                )}
+              </div>
+            </Card>
+
+            {/* Notes */}
+            <Card className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-900/30">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <h3 className="text-lg font-semibold text-foreground">Insights</h3>
+              </div>
+              <div className="space-y-3">
+                {wellnessAnalysis.notes.length > 0 ? (
+                  wellnessAnalysis.notes.map((note, idx) => (
+                    <div key={idx} className="p-3 bg-white/50 dark:bg-black/20 rounded-lg">
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-300 mb-1">
+                        {note.title}
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        {note.description}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No insights available yet</p>
+                )}
+              </div>
+            </Card>
+            </div>
+          ) : (
+            // Loading State
+            <div className="grid grid-cols-3 gap-6">
+              {/* Strengths Loading */}
+              <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-900/30">
+                <div className="flex items-center gap-2 mb-4">
+                  <Star className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <h3 className="text-lg font-semibold text-foreground">Strengths</h3>
+                </div>
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <Loader2 className="w-8 h-8 text-green-600 dark:text-green-400 animate-spin" />
+                  <p className="text-sm text-muted-foreground">Analyzing...</p>
+                </div>
+              </Card>
+
+              {/* Recommendations Loading */}
+              <Card className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-900/30">
+                <div className="flex items-center gap-2 mb-4">
+                  <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-lg font-semibold text-foreground">Recommendations</h3>
+                </div>
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
+                  <p className="text-sm text-muted-foreground">Analyzing...</p>
+                </div>
+              </Card>
+
+              {/* Insights Loading */}
+              <Card className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-900/30">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <h3 className="text-lg font-semibold text-foreground">Insights</h3>
+                </div>
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <Loader2 className="w-8 h-8 text-amber-600 dark:text-amber-400 animate-spin" />
+                  <p className="text-sm text-muted-foreground">Analyzing...</p>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {/* Warning Flags (if any) */}
+          {wellnessAnalysis && wellnessAnalysis.warning_flags.length > 0 && (
+          <Card className="p-6 bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/20 dark:to-rose-950/20 border-red-200 dark:border-red-900/30">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <h3 className="text-lg font-semibold text-foreground">Areas of Concern</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {wellnessAnalysis.warning_flags.map((flag, idx) => (
+                <div key={idx} className="p-4 bg-white/50 dark:bg-black/20 rounded-lg">
+                  <p className="text-sm font-semibold text-red-900 dark:text-red-300 mb-1">
+                    {flag.title}
+                  </p>
+                  <p className="text-xs text-red-700 dark:text-red-400">
+                    {flag.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+            )}
+        </>
 
         {/* Goals Section */}
         <Card className="p-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-900/30">
