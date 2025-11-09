@@ -1,3 +1,5 @@
+"use server";
+
 import Database from 'better-sqlite3'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
@@ -18,7 +20,7 @@ function ensureDataDir() {
 }
 
 // Get database instance (singleton)
-export function getDatabase(): Database.Database {
+function getDatabase(): Database.Database {
   if (!db) {
     ensureDataDir()
     db = new Database(DB_PATH)
@@ -75,14 +77,14 @@ export interface ConversationRecord {
 }
 
 // Upsert conversation contact info
-export function upsertConversationContact(data: {
+export async function upsertConversationContact(data: {
   chatId: string
   sender: string
   senderName?: string | null
   birthday?: string | null
   organization?: string | null
   jobTitle?: string | null
-}): void {
+}): Promise<void> {
   const database = getDatabase()
 
   try {
@@ -123,7 +125,7 @@ export function upsertConversationContact(data: {
 }
 
 // Get conversation by chat ID
-export function getConversation(chatId: string): ConversationRecord | null {
+export async function getConversation(chatId: string): Promise<ConversationRecord | null> {
   const database = getDatabase()
 
   try {
@@ -173,8 +175,37 @@ export function getConversation(chatId: string): ConversationRecord | null {
   }
 }
 
+//get AI Analysis
+export async function getConversationAnalysis(chatId: string): Promise<ConversationAnalysis | null> {
+  const database = getDatabase()
+  const normalizedChatId = normalizeChatId(chatId)
+  const stmt = database.prepare('SELECT ai_analysis FROM conversations WHERE chat_id = ?')
+  const row = stmt.get(normalizedChatId) as any
+  console.log('[DB] Conversation analysis:', row)
+  return row ? JSON.parse(row.ai_analysis) : null
+}
+
+//get multiple conversation analyses
+export async function getConversationAnalyses(chatIds: string[]): Promise<Map<string, ConversationAnalysis>> {
+  const database = getDatabase()
+  
+  if (chatIds.length === 0) {
+    return new Map()
+  }
+  
+  const normalizedChatIds = chatIds.map(chatId => normalizeChatId(chatId))
+  
+  // Create placeholders for each chat ID (?, ?, ?, ...)
+  const placeholders = normalizedChatIds.map(() => '?').join(', ')
+  const stmt = database.prepare(`SELECT chat_id, ai_analysis FROM conversations WHERE chat_id IN (${placeholders})`)
+  
+  const rows = stmt.all(...normalizedChatIds) as any[]
+  
+  return new Map(rows.map(row => [row.chat_id, row.ai_analysis ? JSON.parse(row.ai_analysis) : null]))
+}
+
 // Update AI analysis
-export function updateAIAnalysis(chatId: string, aiAnalysis: ConversationAnalysis): void {
+export async function updateAIAnalysis(chatId: string, aiAnalysis: ConversationAnalysis): Promise<void> {
   const database = getDatabase()
 
   try {
@@ -211,7 +242,7 @@ export function updateAIAnalysis(chatId: string, aiAnalysis: ConversationAnalysi
 }
 
 // Update user notes
-export function updateUserNotes(chatId: string, userNotes: string): void {
+export async function updateUserNotes(chatId: string, userNotes: string): Promise<void> {
   const database = getDatabase()
 
   try {
@@ -234,7 +265,7 @@ export function updateUserNotes(chatId: string, userNotes: string): void {
 }
 
 // Get all conversations (for admin/debugging)
-export function getAllConversations(limit = 100): ConversationRecord[] {
+export async function getAllConversations(limit = 100): Promise<ConversationRecord[]> {
   const database = getDatabase()
 
   try {
@@ -269,7 +300,7 @@ export function getAllConversations(limit = 100): ConversationRecord[] {
 }
 
 // Close database connection (for cleanup)
-export function closeDatabase(): void {
+function closeDatabase(): void {
   if (db) {
     db.close()
     db = null
