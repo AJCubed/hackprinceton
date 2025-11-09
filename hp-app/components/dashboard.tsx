@@ -15,10 +15,11 @@ import {
 } from "recharts"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, Heart, Users, MessageSquare, Target, Calendar, ArrowRight, Sparkles, AlertTriangle, Lightbulb, Star, Loader2 } from "lucide-react"
+import { TrendingUp, Heart, Users, MessageSquare, Target, Calendar, ArrowRight, Sparkles, AlertTriangle, Lightbulb, Star, Loader2, Zap, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GeneralWellnessAnalysis } from "@/lib/types"
 import { analyzeGeneralWellness } from "@/lib/general-wellness-analysis"
+import { getDedalusResponse } from "@/lib/dedalus-communication"
 
 interface AnalyticsData {
   messagesSent: number
@@ -46,6 +47,8 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
     topContacts: []
   })
   const [hoveredContact, setHoveredContact] = useState<string | null>(null)
+  const [completedActions, setCompletedActions] = useState<Map<number, string>>(new Map())
+  const [processingActions, setProcessingActions] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     fetchAnalytics()
@@ -86,6 +89,33 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
       return (parts[0][0] + parts[1][0]).toUpperCase()
     }
     return name.substring(0, 2).toUpperCase()
+  }
+
+  async function handleCompleteAction(index: number, action: string) {
+    try {
+      console.log('Action:', action)
+      // Mark as processing
+      setProcessingActions(prev => new Set(prev).add(index))
+      
+      // Get response from Dedalus
+      const description = await getDedalusResponse(action)
+      
+      // Update completed actions with the response
+      setCompletedActions(prev => {
+        const newMap = new Map(prev)
+        newMap.set(index, description)
+        return newMap
+      })
+    } catch (error) {
+      console.error('Error completing action:', error)
+    } finally {
+      // Remove from processing
+      setProcessingActions(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(index)
+        return newSet
+      })
+    }
   }
 
   if (loading) {
@@ -439,6 +469,59 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
                       <p className="text-xs text-blue-700 dark:text-blue-400">
                         {rec.description}
                       </p>
+                      
+                      {rec.next_message && (
+                        <div className="mt-2 space-y-2">
+                          <div className="p-2 bg-background/50 rounded border border-border/50">
+                            <p className="text-xs text-muted-foreground italic">
+                              Suggested: "{rec.next_message}"
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {rec.next_action && (
+                        <div className="mt-2 space-y-2">
+                          {completedActions.has(idx) ? (
+                            // Show completion summary
+                            <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900/30">
+                              <p className="text-xs font-semibold text-green-900 dark:text-green-300 mb-1">
+                                ✓ Action Completed
+                              </p>
+                              <p className="text-xs text-green-700 dark:text-green-400">
+                                {completedActions.get(idx)}
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="p-2 bg-background/50 rounded border border-border/50">
+                                <p className="text-xs text-muted-foreground">
+                                  {rec.next_action}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="w-full gap-2 text-xs h-7"
+                                onClick={() => handleCompleteAction(idx, rec.next_action!)}
+                                disabled={processingActions.has(idx)}
+                              >
+                                {processingActions.has(idx) ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Zap className="w-3 h-3" />
+                                    Complete action
+                                  </>
+                                )}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))
                 ) : (
