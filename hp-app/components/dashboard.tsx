@@ -237,13 +237,27 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
                 <XAxis dataKey="day" stroke="var(--color-muted-foreground)" />
                 <YAxis stroke="var(--color-muted-foreground)" />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="rounded-lg border-2 border-border bg-popover p-3 shadow-2xl backdrop-blur-sm">
+                          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-popover-foreground">
+                            {label}
+                          </p>
+                          <p className="text-sm font-semibold text-popover-foreground">
+                            {payload[0].value} messages
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
                   }}
-                  cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
+                  cursor={{ 
+                    fill: "rgba(0, 0, 0, 0.06)", 
+                    stroke: "hsl(var(--border))", 
+                    strokeWidth: 2,
+                    strokeDasharray: "4 4",
+                  }}
                 />
                 <Bar dataKey="messages" fill="var(--color-primary)" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -254,14 +268,57 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
           <Card className="p-6 bg-card border-border">
             <h3 className="text-lg font-semibold text-foreground mb-4">Sentiment Distribution</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
+              <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
                 <Pie
                   data={analytics.sentimentData}
                   cx="50%"
                   cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}%`}
-                  outerRadius={100}
+                  labelLine={{ strokeWidth: 2, stroke: "hsl(var(--muted-foreground))", strokeOpacity: 0.5 }}
+                  label={({ name, value, cx, cy, midAngle, innerRadius, outerRadius }: any) => {
+                    const RADIAN = Math.PI / 180
+                    const radius = innerRadius + (outerRadius - innerRadius) * 1.3
+                    const baseX = cx + radius * Math.cos(-midAngle * RADIAN)
+                    const baseY = cy + radius * Math.sin(-midAngle * RADIAN)
+                    
+                    // Add vertical offset based on sentiment to prevent overlap
+                    // Positive moves up, Negative moves down, Neutral stays centered
+                    let verticalOffset = 0
+                    if (name === 'Positive') {
+                      verticalOffset = -10 // Move up
+                    } else if (name === 'Negative') {
+                      verticalOffset = 10 // Move down
+                    } else if (name === 'Neutral') {
+                      // Neutral can stay centered or shift slightly based on angle
+                      const angleDeg = (midAngle + 90) % 360
+                      if (angleDeg > 45 && angleDeg < 135) {
+                        verticalOffset = -6 // Top half, shift up slightly
+                      } else if (angleDeg > 225 && angleDeg < 315) {
+                        verticalOffset = 6 // Bottom half, shift down slightly
+                      }
+                    }
+                    
+                    const x = baseX
+                    const y = baseY + verticalOffset
+                    
+                    // Find the matching entry to get its fill color
+                    const entry = analytics.sentimentData.find((d: any) => d.name === name)
+                    const labelColor = entry?.fill || "var(--color-foreground)"
+                    
+                    return (
+                      <text
+                        x={x}
+                        y={y}
+                        fill={labelColor}
+                        textAnchor={x > cx ? 'start' : 'end'}
+                        dominantBaseline="central"
+                        className="text-xs font-medium"
+                        style={{ padding: '4px' }}
+                      >
+                        {`${name}: ${value}%`}
+                      </text>
+                    )
+                  }}
+                  outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
                 >

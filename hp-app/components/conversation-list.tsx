@@ -135,9 +135,9 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
               className="pl-10 bg-muted border-muted"
             />
           </div>
-          <button className="p-2 hover:bg-muted rounded-lg transition-colors">
+          {/* <button className="p-2 hover:bg-muted rounded-lg transition-colors">
             <Bell className="w-5 h-5 text-muted-foreground" />
-          </button>
+          </button> */}
         </div>
       </div>
 

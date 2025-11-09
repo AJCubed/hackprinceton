@@ -111,12 +111,12 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
           <h2 className="text-lg font-semibold text-foreground">{contactName}</h2>
           <p className="text-xs text-muted-foreground">{messages.length} messages</p>
         </div>
-        <Button variant="ghost" size="icon">
+        {/* <Button variant="ghost" size="icon">
           <Sparkles className="w-5 h-5 text-primary" />
-        </Button>
+        </Button> */}
       </div>
 
-      <div className="flex-1 flex overflow-hidden gap-4">
+      <div className="flex-1 flex overflow-hidden gap-2">
         {/* Messages */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Message Thread */}
@@ -130,13 +130,13 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.isFromMe ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-xs px-4 py-2 rounded-xl ${
+                      className={`max-w-xs px-4 py-2 rounded-xl break-words ${
                         message.isFromMe
                           ? "bg-primary text-primary-foreground rounded-br-none"
                           : "bg-muted text-foreground rounded-bl-none"
                       }`}
                     >
-                      <p className="text-sm">{message.text || "(No text content)"}</p>
+                      <p className="text-sm break-words whitespace-pre-wrap">{message.text || "(No text content)"}</p>
                       <p
                         className={`text-xs mt-1 ${
                           message.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
@@ -154,21 +154,6 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
 
           {/* Input */}
           <div className="border-t border-border bg-card p-4 space-y-4">
-            {/* Quick Actions */}
-            <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" size="sm" className="gap-2 text-xs bg-transparent">
-                <Clock className="w-4 h-4" />
-                Schedule
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2 text-xs bg-transparent">
-                <Gift className="w-4 h-4" />
-                Birthday
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2 text-xs bg-transparent">
-                <Smile className="w-4 h-4" />
-                React
-              </Button>
-            </div>
 
             {/* Message Input */}
             <div className="flex gap-2 items-end">
@@ -185,14 +170,14 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
                 className="bg-muted border-muted resize-none min-h-[40px] max-h-[120px]"
                 rows={1}
               />
-              <Button
+              {/* <Button
                 size="icon"
                 onClick={() => setShowAIAssistant(!showAIAssistant)}
                 variant={showAIAssistant ? "default" : "outline"}
                 className="shrink-0"
               >
                 <Sparkles className="w-4 h-4" />
-              </Button>
+              </Button> */}
               <Button size="icon" onClick={handleSend} className="shrink-0">
                 <Send className="w-4 h-4" />
               </Button>
