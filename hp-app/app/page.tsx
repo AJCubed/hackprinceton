@@ -10,6 +10,11 @@ export default function Home() {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
   const [currentView, setCurrentView] = useState<"messages" | "dashboard">("messages")
 
+  const handleContactClick = (chatId: string) => {
+    setSelectedConversation(chatId)
+    setCurrentView("messages")
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
@@ -23,7 +28,7 @@ export default function Home() {
             {selectedConversation && <MessageDetail conversationId={selectedConversation} />}
           </>
         ) : (
-          <Dashboard />
+          <Dashboard onContactClick={handleContactClick} />
         )}
       </div>
     </div>

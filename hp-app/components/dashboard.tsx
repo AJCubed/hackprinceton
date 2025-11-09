@@ -20,7 +20,8 @@ import {
 } from "recharts"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { TrendingUp, Heart, Users, MessageSquare, Target, Calendar } from "lucide-react"
+import { TrendingUp, Heart, Users, MessageSquare, Target, Calendar, ArrowRight } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 const COMMUNICATION_STYLE = [
   { category: "Empathy", value: 85 },
@@ -37,10 +38,14 @@ interface AnalyticsData {
   activeContacts: number
   activityData: Array<{ day: string; messages: number }>
   sentimentData: Array<{ name: string; value: number; fill: string }>
-  topContacts: Array<{ name: string; messages: number; sentiment: string; frequency: string }>
+  topContacts: Array<{ chatId: string; name: string; messages: number; sentiment: string; frequency: string }>
 }
 
-export function Dashboard() {
+interface DashboardProps {
+  onContactClick?: (chatId: string) => void
+}
+
+export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState("week")
   const [loading, setLoading] = useState(true)
   const [analytics, setAnalytics] = useState<AnalyticsData>({
@@ -51,6 +56,7 @@ export function Dashboard() {
     sentimentData: [],
     topContacts: []
   })
+  const [hoveredContact, setHoveredContact] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAnalytics()
@@ -71,12 +77,20 @@ export function Dashboard() {
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
       case "positive":
-        return "text-green-600"
+        return "text-green-600 dark:text-green-400"
       case "negative":
-        return "text-red-600"
+        return "text-red-600 dark:text-red-400"
       default:
-        return "text-gray-600"
+        return "text-gray-600 dark:text-gray-400"
     }
+  }
+
+  const getInitials = (name: string) => {
+    const parts = name.split(' ')
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.substring(0, 2).toUpperCase()
   }
 
   if (loading) {
@@ -99,18 +113,18 @@ export function Dashboard() {
       <div className="p-8 space-y-8">
         {/* Key Metrics */}
         <div className="grid grid-cols-4 gap-4">
-          <Card className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-900/30">
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-blue-200 dark:border-blue-900/30 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-default">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Messages Sent</p>
                 <p className="text-3xl font-bold text-foreground mt-2">{analytics.messagesSent}</p>
                 <p className="text-xs text-muted-foreground mt-2">Last 7 days</p>
               </div>
-              <MessageSquare className="w-8 h-8 text-blue-600/20" />
+              <MessageSquare className="w-8 h-8 text-blue-600/20 transition-transform duration-200 hover:scale-110" />
             </div>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-900/30">
+          <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-900/30 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-default">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Sentiment</p>
@@ -119,22 +133,22 @@ export function Dashboard() {
                   {analytics.avgSentiment > 50 ? 'Mostly positive' : 'Mixed sentiment'}
                 </p>
               </div>
-              <Heart className="w-8 h-8 text-green-600/20" />
+              <Heart className="w-8 h-8 text-green-600/20 transition-transform duration-200 hover:scale-110" />
             </div>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-900/30">
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-900/30 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-default">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active Contacts</p>
                 <p className="text-3xl font-bold text-foreground mt-2">{analytics.activeContacts}</p>
                 <p className="text-xs text-muted-foreground mt-2">Last 7 days</p>
               </div>
-              <Users className="w-8 h-8 text-purple-600/20" />
+              <Users className="w-8 h-8 text-purple-600/20 transition-transform duration-200 hover:scale-110" />
             </div>
           </Card>
 
-          <Card className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-900/30">
+          <Card className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-900/30 transition-all duration-200 hover:shadow-lg hover:scale-105 cursor-default">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Activity Score</p>
@@ -145,7 +159,7 @@ export function Dashboard() {
                   {analytics.messagesSent > 100 ? 'High activity' : 'Moderate activity'}
                 </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-amber-600/20" />
+              <TrendingUp className="w-8 h-8 text-amber-600/20 transition-transform duration-200 hover:scale-110" />
             </div>
           </Card>
         </div>
@@ -162,11 +176,12 @@ export function Dashboard() {
                 <YAxis stroke="var(--color-muted-foreground)" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "var(--color-card)",
-                    border: "none",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
-                    borderColor: "var(--color-border)",
+                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                   }}
+                  cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
                 />
                 <Bar dataKey="messages" fill="var(--color-primary)" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -221,22 +236,50 @@ export function Dashboard() {
           {/* Top Contacts */}
           <Card className="p-6 bg-card border-border">
             <h3 className="text-lg font-semibold text-foreground mb-4">Top Contacts</h3>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {analytics.topContacts.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No contact data available</p>
               ) : (
                 analytics.topContacts.map((contact, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-foreground text-sm">{contact.name}</p>
+                  <button
+                    key={contact.chatId || idx}
+                    onClick={() => onContactClick?.(contact.chatId)}
+                    onMouseEnter={() => setHoveredContact(contact.chatId)}
+                    onMouseLeave={() => setHoveredContact(null)}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 bg-muted/50 rounded-lg transition-all duration-200 text-left",
+                      "hover:bg-muted hover:shadow-md cursor-pointer group",
+                      hoveredContact === contact.chatId && "ring-2 ring-primary/20"
+                    )}
+                  >
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-110">
+                      <span className="font-semibold text-xs text-primary">{getInitials(contact.name)}</span>
+                    </div>
+
+                    {/* Contact Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-foreground text-sm truncate">{contact.name}</p>
+                        {hoveredContact === contact.chatId && (
+                          <ArrowRight className="w-4 h-4 text-primary flex-shrink-0 transition-transform duration-200" />
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {contact.messages} messages • {contact.frequency}
                       </p>
                     </div>
-                    <span className={`text-xs font-semibold capitalize ${getSentimentColor(contact.sentiment)}`}>
+
+                    {/* Sentiment Badge */}
+                    <span className={cn(
+                      "text-xs font-semibold capitalize px-2 py-1 rounded flex-shrink-0",
+                      contact.sentiment === 'positive' && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
+                      contact.sentiment === 'negative' && "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+                      contact.sentiment === 'neutral' && "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                    )}>
                       {contact.sentiment}
                     </span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

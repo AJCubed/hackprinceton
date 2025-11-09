@@ -13,7 +13,7 @@ export async function analyzeConversation(
 ): Promise<ConversationAnalysis> {
   // Read existing data from database
   const normalizedChatId = normalizeChatId(chatId);
-  const existingData = getConversation(normalizedChatId);
+  const existingData = await getConversation(normalizedChatId);
   
   // Build context from existing data
   let contextPrompt = '';
