@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { homedir } from 'os'
 import { existsSync, readdirSync } from 'fs'
 import { join } from 'path'
+import { upsertConversationContact } from '@/lib/db'
 
 // Contact info structure with all available fields
 export interface ContactInfo {
@@ -184,6 +185,12 @@ export async function loadContactsMap(): Promise<Map<string, ContactInfo>> {
     contactMap = map
     contactMapLoaded = true
     console.log('[Contacts] Successfully loaded', map.size, 'unique contact mappings with full info')
+    
+    // Sync contacts to database (non-blocking)
+    syncContactsToDatabase(map).catch(err => {
+      console.error('[Contacts] Error syncing to database:', err)
+    })
+    
     return map
   } catch (error) {
     console.error('[Contacts] Error loading contacts:', error)
@@ -191,6 +198,46 @@ export async function loadContactsMap(): Promise<Map<string, ContactInfo>> {
     contactMapLoaded = true
     return contactMap
   }
+}
+
+// Sync loaded contacts to the database
+async function syncContactsToDatabase(map: Map<string, ContactInfo>): Promise<void> {
+  console.log('[Contacts] Starting database sync...')
+  
+  // Group by unique sender (multiple keys can point to the same contact)
+  const seenContacts = new Set<string>()
+  const uniqueContacts = new Map<string, ContactInfo>()
+  
+  for (const [identifier, info] of map.entries()) {
+    const contactKey = `${info.name}-${info.birthday || ''}-${info.organization || ''}`
+    
+    if (!seenContacts.has(contactKey)) {
+      seenContacts.add(contactKey)
+      uniqueContacts.set(identifier, info)
+    }
+  }
+  
+  let syncCount = 0
+  for (const [identifier, info] of uniqueContacts.entries()) {
+    try {
+      // Use identifier as both chatId and sender for now
+      // This will be updated when actual conversations are loaded
+      upsertConversationContact({
+        chatId: identifier,
+        sender: identifier,
+        senderName: info.name,
+        birthday: info.birthday || null,
+        organization: info.organization || null,
+        jobTitle: info.jobTitle || null,
+      })
+      syncCount++
+    } catch (error) {
+      // Log but don't fail - database sync is non-critical
+      console.error('[Contacts] Error syncing contact:', identifier, error)
+    }
+  }
+  
+  console.log('[Contacts] Successfully synced', syncCount, 'contacts to database')
 }
 
 export async function lookupContactName(identifier: string): Promise<string | null> {
