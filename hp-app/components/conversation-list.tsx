@@ -119,7 +119,7 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
   }
 
   return (
-    <div className="w-80 bg-card border-r border-border flex flex-col">
+    <div className="w-80 bg-card border-r border-border flex flex-col font-sans">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <h1 className="text-2xl font-semibold text-foreground mb-4">Messages</h1>
