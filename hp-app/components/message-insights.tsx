@@ -1,16 +1,18 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { TrendingUp, Users, Clock, Zap, Frown, Meh, Smile } from "lucide-react"
+import { TrendingUp, Users, Clock, Zap, Frown, Meh, Smile, Send } from "lucide-react"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { getConversationAnalysis } from "@/lib/db"
 import { ConversationAnalysis } from "@/lib/types"
 
 interface MessageInsightsProps {
   conversationId: string
+  onSuggestMessage?: (message: string) => void
 }
 
-export function MessageInsights({ conversationId }: MessageInsightsProps) {
+export function MessageInsights({ conversationId, onSuggestMessage }: MessageInsightsProps) {
   const [analysis, setAnalysis] = useState<ConversationAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -117,11 +119,11 @@ export function MessageInsights({ conversationId }: MessageInsightsProps) {
         <div className="flex items-start gap-3">
           <Users className="w-5 h-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-purple-900 dark:text-purple-300 capitalize">
-              {relationship_type}
+            <p className="text-xs font-semibold text-purple-900 dark:text-purple-300">
+              Relationship Type
             </p>
-            <p className="text-xs text-purple-700 dark:text-purple-400 mt-1">
-              {notes}
+            <p className="text-xs text-purple-700 dark:text-purple-400 mt-1 capitalize">
+              {relationship_type}
             </p>
           </div>
         </div>
@@ -154,10 +156,23 @@ export function MessageInsights({ conversationId }: MessageInsightsProps) {
                         {rec.description}
                       </p>
                       {rec.next_message && (
-                        <div className="mt-2 p-2 bg-background/50 rounded border border-border/50">
-                          <p className="text-xs text-muted-foreground italic">
-                            Suggested: "{rec.next_message}"
-                          </p>
+                        <div className="mt-2 space-y-2">
+                          <div className="p-2 bg-background/50 rounded border border-border/50">
+                            <p className="text-xs text-muted-foreground italic">
+                              Suggested: "{rec.next_message}"
+                            </p>
+                          </div>
+                          {onSuggestMessage && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full gap-2 text-xs h-7"
+                              onClick={() => onSuggestMessage(rec.next_message!)}
+                            >
+                              <Send className="w-3 h-3" />
+                              Use this message
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>

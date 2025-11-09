@@ -32,7 +32,39 @@ export const ConversationAnalysisSchema = z.object({
         description: z.string().describe("The description of the recommendation. Keep it short and concise, roughly 1-2 sentences."),
         next_message: z.string().describe("An optional next message to send to the contact").optional(),
     })).describe("The recommended next steps for the conversation, such as 'Follow up', 'Propose plan', 'Check in', 'Respond to recent message', etc."),
-    notes: z.string().describe("The notes for how the conversation impacts the mental health of the user.  "),
+    notes: z.string().describe("The notes for how the conversation impacts the mental health of the user. This is for conversation summarization, not for the user, so be specific.  "),
     relationship_type: z.string().describe("The relationship type of the conversation between the two people.  Keep it short and concise, roughly 1-2 words."),
 })
 
+export interface TitleAndDescription {
+    title: string,
+    description: string,
+}
+
+export interface GeneralWellnessAnalysis {
+    wellness_score: number,
+    compliments: TitleAndDescription[],
+    recommendations: Recommendation[],
+    notes: TitleAndDescription[],
+    warning_flags: TitleAndDescription[],
+}
+
+export const GeneralWellnessAnalysisSchema = z.object({
+    wellness_score: z.number().describe("The wellness score of the user from 0 to 100"),
+    compliments: z.array(z.object({
+        title: z.string().describe("The title of the compliment"),
+        description: z.string().describe("The description of the compliment. Keep it short and concise, roughly 1-2 sentences."),
+    })).describe("The compliments for the user. Keep it short and concise, roughly 1-2 sentences."),
+    recommendations: z.array(z.object({
+        title: z.string().describe("The title of the recommendation"),
+        description: z.string().describe("The description of the recommendation. Keep it short and concise, roughly 1-2 sentences."),
+    })).describe("The recommendations for the user. Keep it short and concise, roughly 1-2 sentences."),
+    notes: z.array(z.object({
+        title: z.string().describe("The title of the note"),
+        description: z.string().describe("The description of the note. Keep it short and concise, roughly 1-2 sentences."),
+    })).describe("The notes for the user. Keep it short and concise, roughly 1-2 sentences."),
+    warning_flags: z.array(z.object({
+        title: z.string().describe("The title of the warning flag"),
+        description: z.string().describe("The description of the warning flag. Keep it short and concise, roughly 1-2 sentences."),
+    })).describe("The warning flags for the user. Keep it short and concise, roughly 1-2 sentences."),
+})
