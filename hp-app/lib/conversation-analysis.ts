@@ -1,16 +1,56 @@
 "use server";
 
-
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { ConversationAnalysis, ConversationAnalysisSchema, Message } from './types';
 import { anthropic } from '@ai-sdk/anthropic';
+import { getConversation, updateAIAnalysis } from './db';
+import { normalizeChatId } from './utils';
 
+export async function analyzeConversation(
+  chatId: string,
+  conversation: Message[]
+): Promise<ConversationAnalysis> {
+  // Read existing data from database
+  const normalizedChatId = normalizeChatId(chatId);
+  const existingData = getConversation(normalizedChatId);
+  
+  // Build context from existing data
+  let contextPrompt = '';
+  if (existingData) {
+    if (existingData.aiAnalysis) {
+      contextPrompt += '\n\nPrevious Analysis:\n';
+      contextPrompt += `- Sentiment: ${existingData.aiAnalysis.sentiment}\n`;
+      contextPrompt += `- Positivity Score: ${existingData.aiAnalysis.positivity_score}\n`;
+      contextPrompt += `- Relationship Type: ${existingData.aiAnalysis.relationship_type}\n`;
+      contextPrompt += `- Previous Notes: ${existingData.aiAnalysis.notes}\n`;
+    }
+    
+    if (existingData.userNotes) {
+      contextPrompt += '\n\nUser Notes: ' + existingData.userNotes + '\n';
+    }
+    
+    if (existingData.birthday || existingData.organization || existingData.jobTitle) {
+      contextPrompt += '\n\nContact Info:\n';
+      if (existingData.senderName) contextPrompt += `- Name: ${existingData.senderName}\n`;
+      if (existingData.birthday) contextPrompt += `- Birthday: ${existingData.birthday}\n`;
+      if (existingData.organization) contextPrompt += `- Organization: ${existingData.organization}\n`;
+      if (existingData.jobTitle) contextPrompt += `- Job Title: ${existingData.jobTitle}\n`;
+    }
+  }
 
+  // Combine messages into a single prompt
+  const conversationText = conversation
+    .map(message => `${message.isFromMe ? 'You' : message.senderName || message.sender}: ${message.text || '(media/attachment)'}`)
+    .join('\n');
 
-export async function analyzeConversation(conversation: Message[]): Promise<ConversationAnalysis> {
-  // combine messages into a single prompt
-  const prompt = "Analyze the following conversation and provide a summary of the conversation in accordance with the schema provided. The recent conversation is as follows: \n" + conversation.map(message => `${message.sender}: ${message.text}`).join('\n');
+  const prompt = `Analyze the following conversation and provide insights in accordance with the schema provided.
+  ${contextPrompt}
+  --------------------------------
+  Recent Conversation:
+  ${conversationText}
+
+  Please provide an updated analysis considering both the recent messages and any previous context.`;
 
   const {object, warnings, response} = await generateObject({
     model: anthropic('claude-haiku-4-5'),
@@ -18,9 +58,18 @@ export async function analyzeConversation(conversation: Message[]): Promise<Conv
     prompt,
   });
 
-  console.log("Conversation Ojbect:", object);
-  console.log("Conversation Warnings:", warnings);
-  console.log("Conversation Response:", response);
+  console.log('[Analysis] Conversation Object:', object);
+  console.log('[Analysis] Warnings:', warnings);
+  console.log('[Analysis] Response:', response);
+
+  // Write analysis results back to database
+  try {
+    updateAIAnalysis(normalizedChatId, object);
+    console.log('[Analysis] Successfully saved analysis to database for chat:', normalizedChatId);
+  } catch (error) {
+    console.error('[Analysis] Error saving to database:', error);
+    // Don't fail the analysis if DB write fails
+  }
 
   return object;
 }

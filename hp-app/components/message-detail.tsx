@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageInsights } from "@/components/message-insights"
 import { AIAssistant } from "@/components/ai-assistant"
-import { Message } from "@/app/lib/types.ts"
+import { Message } from "../lib/types"
 import { analyzeConversation } from "@/lib/conversation-analysis"
 
 
@@ -55,8 +55,10 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
       }
 
       // Analyze conversation
-      const analysis = await analyzeConversation(data.messages)
-      console.log(analysis);
+      if (data.messages && data.messages.length > 0) {
+        const analysis = await analyzeConversation(conversationId, data.messages)
+        console.log('[MessageDetail] Analysis:', analysis);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error)
     } finally {

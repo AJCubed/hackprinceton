@@ -10,7 +10,6 @@ export interface Message {
     isRead: boolean
 }
 
-
 export interface Recommendation {
     title: string,
     description: string,
