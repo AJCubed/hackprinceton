@@ -6,16 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { MessageInsights } from "@/components/message-insights"
 import { AIAssistant } from "@/components/ai-assistant"
+import { Message } from "@/app/lib/types.ts"
+import { analyzeConversation } from "@/lib/conversation-analysis"
 
-interface Message {
-  id: string
-  text: string | null
-  sender: string
-  senderName: string | null
-  date: string
-  isFromMe: boolean
-  isRead: boolean
-}
 
 interface MessageDetailProps {
   conversationId: string
@@ -60,6 +53,10 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
         const firstMessage = data.messages[0]
         setContactName(firstMessage.senderName || firstMessage.sender)
       }
+
+      // Analyze conversation
+      const analysis = await analyzeConversation(data.messages)
+      console.log(analysis);
     } catch (error) {
       console.error('Error fetching messages:', error)
     } finally {

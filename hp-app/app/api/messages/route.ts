@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         isFromMe: msg.isFromMe,
         isRead: msg.isRead
       }))
-    console.log(messages)
+    
     return NextResponse.json({ messages })
   } catch (error) {
     console.error('Error fetching messages:', error)
