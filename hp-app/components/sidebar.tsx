@@ -2,6 +2,7 @@
 
 import { MessageCircle, BarChart3, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Image from "next/image"
 
 interface SidebarProps {
   currentView: "messages" | "dashboard"
@@ -11,8 +12,14 @@ interface SidebarProps {
 export function Sidebar({ currentView, setCurrentView }: SidebarProps) {
   return (
     <div className="w-16 bg-card border-r border-border flex flex-col items-center py-4 gap-4">
-      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-primary-foreground font-semibold text-lg">
-        M
+      <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-card">
+        <Image
+          src="/logo.jpeg"
+          alt="Logo"
+          width={100}
+          height={100}
+          className="object-contain rounded-full"
+        />
       </div>
 
       <nav className="flex flex-col gap-2">
