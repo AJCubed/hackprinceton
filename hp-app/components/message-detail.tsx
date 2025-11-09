@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Send, Sparkles, Clock, Gift, Smile } from "lucide-react"
+import { Send, Sparkles, Clock, Gift, Smile, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { MessageInsights } from "@/components/message-insights"
@@ -13,36 +13,50 @@ import { getConversation } from "@/lib/db"
 
 interface MessageDetailProps {
   conversationId: string
+  initialContactName?: string | null
 }
 
-export function MessageDetail({ conversationId }: MessageDetailProps) {
+export function MessageDetail({ conversationId, initialContactName }: MessageDetailProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
   const [inputValue, setInputValue] = useState("")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
-  const [contactName, setContactName] = useState<string>("Contact")
+  const [contactName, setContactName] = useState<string>(initialContactName || "Contact")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const currentConversationIdRef = useRef<string>(conversationId)
+
+  // Keep the ref updated with the current conversationId
+  useEffect(() => {
+    currentConversationIdRef.current = conversationId
+  }, [conversationId])
 
   useEffect(() => {
+    // Clear messages and reset state when conversation changes
+    setMessages([])
+    setLoading(true)
+    setContactName(initialContactName || "Contact")
+    
     const loadMessages = async () => {
-      await fetchMessages()
+      await fetchMessages(conversationId)
       
       // Set up polling for new messages every 5 seconds
-      pollingIntervalRef.current = setInterval(() => {
-        fetchMessages(true) // Pass true to indicate this is a background refresh
-      }, 5000)
+      // pollingIntervalRef.current = setInterval(() => {
+      //   // Use the ref to always get the current conversationId
+      //   fetchMessages(currentConversationIdRef.current, true)
+      // }, 5000)
     }
     
     loadMessages()
     
     // Cleanup interval on unmount or conversation change
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-      }
+      // if (pollingIntervalRef.current) {
+      //   clearInterval(pollingIntervalRef.current)
+      //   pollingIntervalRef.current = null
+      // }
     }
-  }, [conversationId])
+  }, [conversationId, initialContactName])
 
   useEffect(() => {
     // Scroll to bottom when messages change or load
@@ -60,25 +74,44 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
     }
   }, [loading, messages.length])
 
-  const fetchMessages = async (isBackgroundRefresh = false) => {
+  const fetchMessages = async (chatId: string, isBackgroundRefresh = false) => {
     // Only show loading spinner on initial load, not on background refreshes
     if (!isBackgroundRefresh) {
       setLoading(true)
     }
     try {
       // Try both chatId and sender parameters
-      let url = `/api/messages?chatId=${encodeURIComponent(conversationId)}`
+      let url = `/api/messages?chatId=${encodeURIComponent(chatId)}`
       let response = await fetch(url)
       let data = await response.json()
       
       // If no messages found with chatId, try with sender
       if (!data.messages || data.messages.length === 0) {
-        url = `/api/messages?sender=${encodeURIComponent(conversationId)}`
+        url = `/api/messages?sender=${encodeURIComponent(chatId)}`
         response = await fetch(url)
         data = await response.json()
       }
       
       const newMessages = data.messages || []
+      
+      // Update contact name from messages if we don't have initialContactName
+      // or if the current name is still "Contact"
+      if (!initialContactName || contactName === "Contact") {
+        if (newMessages.length > 0) {
+          const firstMessage = newMessages[0]
+          const name = firstMessage.senderName || firstMessage.sender
+          if (name !== contactName) {
+            setContactName(name)
+          }
+        } else {
+          // Fallback to database lookup only if no messages
+          const conversation = await getConversation(chatId);
+          const name = conversation?.senderName || conversation?.sender || "Contact"
+          if (name !== contactName) {
+            setContactName(name)
+          }
+        }
+      }
       
       // Only update if messages have changed (to avoid unnecessary re-renders)
       const hasNewMessages = newMessages.length !== messages.length || 
@@ -96,12 +129,9 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
         }
       }
       
-      const conversation = await getConversation(conversationId);
-      setContactName(conversation?.senderName || conversation?.sender || "Contact");
-      
       // Analyze conversation (only on initial load or significant changes)
       if (newMessages.length > 0 && (!isBackgroundRefresh || hasNewMessages)) {
-        analyzeConversation(conversationId, newMessages);
+        analyzeConversation(chatId, newMessages);
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
@@ -144,7 +174,7 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
       
       // Refresh messages in background (without showing loading screen)
       // This will replace the optimistic message with the real one from the server
-      fetchMessages(true)
+      fetchMessages(conversationId, true)
     } catch (error) {
       console.error('Error sending message:', error)
       // Remove optimistic message on error
@@ -159,9 +189,10 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
   }
 
-  if (loading) {
+  if (loading && messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center bg-background gap-4">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
         <p className="text-muted-foreground">Loading messages...</p>
       </div>
     )

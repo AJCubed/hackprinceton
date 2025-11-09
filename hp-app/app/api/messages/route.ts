@@ -34,11 +34,11 @@ export async function GET(request: NextRequest) {
   try {
     // Calculate date from two weeks ago
     const twoWeeksAgo = new Date()
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 6)
     
     const filter: any = {
       excludeOwnMessages: false,
-      limit: 100,
+      limit: 20,
       since: twoWeeksAgo,
       
     }

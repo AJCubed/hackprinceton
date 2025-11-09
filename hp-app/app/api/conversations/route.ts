@@ -27,7 +27,7 @@ export async function GET() {
 
     // Calculate date from two weeks ago
     const twoWeeksAgo = new Date()
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 7)
 
     // Get recent messages (limit to 1000 to get a good sample)
     const result = await sdk.getMessages({
