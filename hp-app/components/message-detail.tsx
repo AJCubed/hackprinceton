@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Send, Sparkles, Clock, Gift, Smile } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,10 +27,16 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
   const [inputValue, setInputValue] = useState("")
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [contactName, setContactName] = useState<string>("Contact")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchMessages()
   }, [conversationId])
+
+  useEffect(() => {
+    // Scroll to bottom when messages change
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" })
+  }, [messages])
 
   const fetchMessages = async () => {
     setLoading(true)
@@ -113,26 +119,29 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
                 <p className="text-muted-foreground">No messages yet</p>
               </div>
             ) : (
-              messages.map((message) => (
-                <div key={message.id} className={`flex ${message.isFromMe ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-xs px-4 py-2 rounded-xl ${
-                      message.isFromMe
-                        ? "bg-primary text-primary-foreground rounded-br-none"
-                        : "bg-muted text-foreground rounded-bl-none"
-                    }`}
-                  >
-                    <p className="text-sm">{message.text || "(No text content)"}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        message.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+              <>
+                {messages.map((message) => (
+                  <div key={message.id} className={`flex ${message.isFromMe ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-xs px-4 py-2 rounded-xl ${
+                        message.isFromMe
+                          ? "bg-primary text-primary-foreground rounded-br-none"
+                          : "bg-muted text-foreground rounded-bl-none"
                       }`}
                     >
-                      {formatMessageTime(message.date)}
-                    </p>
+                      <p className="text-sm">{message.text || "(No text content)"}</p>
+                      <p
+                        className={`text-xs mt-1 ${
+                          message.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                        }`}
+                      >
+                        {formatMessageTime(message.date)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                <div ref={messagesEndRef} />
+              </>
             )}
           </div>
 
