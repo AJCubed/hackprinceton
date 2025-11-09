@@ -618,60 +618,7 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
             )}
         </>
 
-        {/* Goals Section */}
-        <Card className="p-8 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-900/30">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h3 className="text-xl font-semibold text-foreground flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary" />
-                Communication Goals
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">Set personal communication objectives</p>
-            </div>
-            <Button className="gap-2">
-              <Calendar className="w-4 h-4" />
-              Add Goal
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-900/30">
-              <div className="flex items-start justify-between mb-2">
-                <p className="font-semibold text-foreground">Reach out to 5 old friends</p>
-                <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded">
-                  3/5
-                </span>
-              </div>
-              <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500" style={{ width: "60%" }} />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">2 more to go</p>
-            </div>
-
-            <div className="p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-900/30">
-              <div className="flex items-start justify-between mb-2">
-                <p className="font-semibold text-foreground">Reduce response time</p>
-                <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded">
-                  In Progress
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">Average: 2.4 minutes (target: 3 min)</p>
-              <p className="text-xs text-green-600 dark:text-green-400 mt-2">✓ You're doing great!</p>
-            </div>
-
-            <div className="p-4 bg-white/50 dark:bg-black/20 rounded-lg border border-purple-200 dark:border-purple-900/30">
-              <div className="flex items-start justify-between mb-2">
-                <p className="font-semibold text-foreground">Improve conflict resolution</p>
-                <span className="text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 px-2 py-1 rounded">
-                  Upcoming
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Focus on calm, empathetic responses in difficult conversations
-              </p>
-            </div>
-          </div>
-        </Card>
+        
       </div>
     </div>
   )

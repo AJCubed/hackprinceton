@@ -21,7 +21,7 @@ interface Conversation {
 
 interface ConversationListProps {
   selectedConversation: string | null
-  onSelectConversation: (id: string) => void
+  onSelectConversation: (id: string, contactName: string) => void
 }
 
 export function ConversationList({ selectedConversation, onSelectConversation }: ConversationListProps) {
@@ -80,7 +80,8 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
         
         // Only auto-select first conversation on initial load
         if (!isBackgroundRefresh && newConversations.length > 0 && !selectedConversation) {
-          onSelectConversation(newConversations[0].chatId)
+          const firstConv = newConversations[0]
+          onSelectConversation(firstConv.chatId, firstConv.senderName || firstConv.sender)
         }
       }
       
@@ -193,7 +194,7 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
             return (
               <button
                 key={conversationKey}
-                onClick={() => onSelectConversation(conversationKey)}
+                onClick={() => onSelectConversation(conversationKey, displayName)}
                 className={cn(
                   "w-full p-4 border-b border-border text-left transition-colors hover:bg-muted/50",
                   selectedConversation === conversationKey && "bg-muted",

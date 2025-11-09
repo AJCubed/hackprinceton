@@ -4,6 +4,7 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 import { ConversationAnalysis, ConversationAnalysisSchema, Message } from './types';
 import { anthropic } from '@ai-sdk/anthropic';
+import { google } from "@ai-sdk/google"
 import { getConversation, updateAIAnalysis } from './db';
 import { normalizeChatId } from './utils';
 

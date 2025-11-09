@@ -8,10 +8,17 @@ import { Sidebar } from "@/components/sidebar"
 
 export default function Home() {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null)
+  const [selectedContactName, setSelectedContactName] = useState<string | null>(null)
   const [currentView, setCurrentView] = useState<"messages" | "dashboard">("messages")
+
+  const handleSelectConversation = (chatId: string, contactName: string) => {
+    setSelectedConversation(chatId)
+    setSelectedContactName(contactName)
+  }
 
   const handleContactClick = (chatId: string) => {
     setSelectedConversation(chatId)
+    setSelectedContactName(null) // Will be fetched by MessageDetail
     setCurrentView("messages")
   }
 
@@ -23,9 +30,14 @@ export default function Home() {
           <>
             <ConversationList
               selectedConversation={selectedConversation}
-              onSelectConversation={setSelectedConversation}
+              onSelectConversation={handleSelectConversation}
             />
-            {selectedConversation && <MessageDetail conversationId={selectedConversation} />}
+            {selectedConversation && (
+              <MessageDetail 
+                conversationId={selectedConversation}
+                initialContactName={selectedContactName}
+              />
+            )}
           </>
         ) : (
           <Dashboard onContactClick={handleContactClick} />
