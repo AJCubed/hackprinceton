@@ -32,7 +32,7 @@ export async function GET() {
     // Get recent messages (limit to 1000 to get a good sample)
     const result = await sdk.getMessages({
       excludeOwnMessages: false,
-      limit: 1000,
+      limit: 5000,
       since: twoWeeksAgo
     })
     
