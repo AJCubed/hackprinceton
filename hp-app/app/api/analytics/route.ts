@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { Message } from '@photon-ai/imessage-kit'
 import { lookupContact, ensureContactsLoaded } from '../contacts'
+import { getConversationAnalyses } from '@/lib/db'
+import { normalizeChatId } from '@/lib/utils'
+import type { ConversationAnalysis } from '@/lib/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -55,51 +58,6 @@ export async function GET() {
       messages: messagesByDay[day] || 0
     }))
     
-    // Simple sentiment analysis per contact
-    const contactSentiments: { [key: string]: { positive: number, neutral: number, negative: number } } = {}
-    const positiveWords = ['love', 'great', 'amazing', 'awesome', 'good', 'thanks', 'thank you', '😂', '😊', '❤️', '!']
-    const negativeWords = ['sorry', 'unfortunately', 'problem', 'issue', 'bad', 'not sure', 'no', "can't"]
-    
-    messagesArray.forEach(msg => {
-      // Handle null text values
-      const text = (msg.text || '').toLowerCase()
-      
-      if (!contactSentiments[msg.sender]) {
-        contactSentiments[msg.sender] = { positive: 0, neutral: 0, negative: 0 }
-      }
-      
-      // Skip empty messages for sentiment analysis
-      if (!text.trim()) {
-        contactSentiments[msg.sender].neutral++
-        return
-      }
-      
-      const hasPositive = positiveWords.some(word => text.includes(word))
-      const hasNegative = negativeWords.some(word => text.includes(word))
-      
-      if (hasPositive && !hasNegative) {
-        contactSentiments[msg.sender].positive++
-      } else if (hasNegative && !hasPositive) {
-        contactSentiments[msg.sender].negative++
-      } else {
-        contactSentiments[msg.sender].neutral++
-      }
-    })
-    
-    // Overall sentiment analysis
-    const sentimentCounts = { positive: 0, neutral: 0, negative: 0 }
-    Object.values(contactSentiments).forEach(sent => {
-      sentimentCounts.positive += sent.positive
-      sentimentCounts.neutral += sent.neutral
-      sentimentCounts.negative += sent.negative
-    })
-    
-    const total = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative
-    const sentimentData = [
-      { name: 'Positive', value: total > 0 ? Math.round((sentimentCounts.positive / total) * 100) : 0, fill: '#10b981' },
-      { name: 'Neutral', value: total > 0 ? Math.round((sentimentCounts.neutral / total) * 100) : 0, fill: '#6b7280' },
-      { name: 'Negative', value: total > 0 ? Math.round((sentimentCounts.negative / total) * 100) : 0, fill: '#ef4444' }
-    ]
     
     // Group messages by chatId (conversation identifier)
     // For 1-on-1 chats, chatId is typically the contact's identifier
@@ -122,8 +80,25 @@ export async function GET() {
       })
     )
     
+    // Fetch all conversation analyses at once
+    const chatIds = Array.from(uniqueContacts)
+    const analyses = await getConversationAnalyses(chatIds)
+    
+    // Helper function to convert positivity_score to sentiment category
+    const getSentimentFromScore = (positivityScore: number | null | undefined): string => {
+      if (positivityScore === null || positivityScore === undefined) {
+        return 'neutral'
+      }
+      if (positivityScore > 30) {
+        return 'positive'
+      } else if (positivityScore < -30) {
+        return 'negative'
+      }
+      return 'neutral'
+    }
+    
     // Top contacts by message count with proper name lookup
-    const contactCounts: { [key: string]: { count: number, name: string, sentiment: string, chatId: string } } = {}
+    const contactCounts: { [key: string]: { count: number, name: string, sentiment: string, chatId: string, positivityScore: number | null } } = {}
     
     // Process each chat/conversation (with async contact lookups)
     const chatEntries = Object.entries(chatGroups)
@@ -146,32 +121,18 @@ export async function GET() {
         const contactInfo = contactInfoChatId || contactInfoSender
         const contactName = contactInfo?.name || receivedMessages[0].senderName || chatId || contactSender
         
-        // Determine sentiment for this contact (aggregate all messages in the chat)
-        const allSentiments = { positive: 0, neutral: 0, negative: 0 }
-        chatMessages.forEach(msg => {
-          const sent = contactSentiments[msg.sender] || { positive: 0, neutral: 0, negative: 0 }
-          allSentiments.positive += sent.positive
-          allSentiments.neutral += sent.neutral
-          allSentiments.negative += sent.negative
-        })
-        
-        const totalSent = allSentiments.positive + allSentiments.neutral + allSentiments.negative
-        let sentiment = 'neutral'
-        if (totalSent > 0) {
-          const positiveRatio = allSentiments.positive / totalSent
-          const negativeRatio = allSentiments.negative / totalSent
-          if (positiveRatio > 0.6) {
-            sentiment = 'positive'
-          } else if (negativeRatio > 0.4) {
-            sentiment = 'negative'
-          }
-        }
+        // Get conversation analysis
+        const normalizedChatId = normalizeChatId(chatId)
+        const analysis = analyses.get(normalizedChatId)
+        const positivityScore = analysis?.positivity_score ?? null
+        const sentiment = getSentimentFromScore(positivityScore)
         
         return {
           chatId,
           count: chatMessages.length, // Total messages in conversation
           name: contactName,
-          sentiment
+          sentiment,
+          positivityScore
         }
       })
     )
@@ -194,7 +155,51 @@ export async function GET() {
         frequency: data.count > 20 ? 'Daily' : data.count > 10 ? '3x/week' : data.count > 5 ? 'Weekly' : 'Occasional'
       }))
     
-    const avgSentiment = sentimentData[0].value // Positive percentage
+    // Calculate overall sentiment distribution from all analyses
+    const sentimentCounts = { positive: 0, neutral: 0, negative: 0 }
+    const processedChatIds = new Set<string>()
+    
+    // Count sentiments from analyses we have (including null analyses as neutral)
+    analyses.forEach((analysis, normalizedChatId) => {
+      processedChatIds.add(normalizedChatId)
+      if (analysis && analysis.positivity_score !== null && analysis.positivity_score !== undefined) {
+        const sentiment = getSentimentFromScore(analysis.positivity_score)
+        sentimentCounts[sentiment as keyof typeof sentimentCounts]++
+      } else {
+        // Analysis is null or missing positivity_score - count as neutral
+        sentimentCounts.neutral++
+      }
+    })
+    
+    // Count contacts without any analysis entry as neutral
+    chatIds.forEach(chatId => {
+      const normalizedId = normalizeChatId(chatId)
+      if (!processedChatIds.has(normalizedId)) {
+        sentimentCounts.neutral++
+      }
+    })
+    
+    const total = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative
+    const sentimentData = [
+      { name: 'Positive', value: total > 0 ? Math.round((sentimentCounts.positive / total) * 100) : 0, fill: '#10b981' },
+      { name: 'Neutral', value: total > 0 ? Math.round((sentimentCounts.neutral / total) * 100) : 0, fill: '#6b7280' },
+      { name: 'Negative', value: total > 0 ? Math.round((sentimentCounts.negative / total) * 100) : 0, fill: '#ef4444' }
+    ]
+    
+    // Calculate average sentiment from positivity scores
+    let totalPositivityScore = 0
+    let scoreCount = 0
+    analyses.forEach((analysis) => {
+      if (analysis && analysis.positivity_score !== null && analysis.positivity_score !== undefined) {
+        totalPositivityScore += analysis.positivity_score
+        scoreCount++
+      }
+    })
+    
+    // Convert average positivity score (-100 to 100) to percentage (0 to 100)
+    // Add 100 to shift from -100..100 to 0..200, then divide by 2 to get 0..100
+    const avgPositivityScore = scoreCount > 0 ? totalPositivityScore / scoreCount : 0
+    const avgSentiment = Math.max(0, Math.min(100, Math.round((avgPositivityScore + 100) / 2)))
     
     return NextResponse.json({
       messagesSent: sentMessages,

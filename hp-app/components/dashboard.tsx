@@ -105,7 +105,7 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
     <div className="flex-1 overflow-y-auto bg-background">
       {/* Header */}
       <div className="sticky top-0 bg-card border-b border-border px-8 py-6 z-10">
-        <h1 className="text-3xl font-semibold text-foreground mb-2">Communication Dashboard</h1>
+        <h1 className="text-3xl font-semibold text-foreground mb-2">Wellness Dashboard</h1>
         <p className="text-muted-foreground">Insights into your social patterns and communication style</p>
       </div>
 
