@@ -50,7 +50,7 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
         }
       }))
       setConversations(conversations)
-
+      onSelectConversation(conversations[0].chatId);
       const analyses = await getConversationAnalyses((data.conversations || []).map((conv: Conversation) => conv.chatId))
       setAnalyses(analyses)
       console.log('Analyses Map', analyses)
