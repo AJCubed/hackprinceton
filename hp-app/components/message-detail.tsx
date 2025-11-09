@@ -22,9 +22,26 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [contactName, setContactName] = useState<string>("Contact")
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    fetchMessages()
+    const loadMessages = async () => {
+      await fetchMessages()
+      
+      // Set up polling for new messages every 5 seconds
+      pollingIntervalRef.current = setInterval(() => {
+        fetchMessages(true) // Pass true to indicate this is a background refresh
+      }, 5000)
+    }
+    
+    loadMessages()
+    
+    // Cleanup interval on unmount or conversation change
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
   }, [conversationId])
 
   useEffect(() => {
@@ -43,8 +60,11 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
     }
   }, [loading, messages.length])
 
-  const fetchMessages = async () => {
-    setLoading(true)
+  const fetchMessages = async (isBackgroundRefresh = false) => {
+    // Only show loading spinner on initial load, not on background refreshes
+    if (!isBackgroundRefresh) {
+      setLoading(true)
+    }
     try {
       // Try both chatId and sender parameters
       let url = `/api/messages?chatId=${encodeURIComponent(conversationId)}`
@@ -58,19 +78,37 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
         data = await response.json()
       }
       
-      setMessages(data.messages || [])
+      const newMessages = data.messages || []
+      
+      // Only update if messages have changed (to avoid unnecessary re-renders)
+      const hasNewMessages = newMessages.length !== messages.length || 
+        (newMessages.length > 0 && messages.length > 0 && 
+         newMessages[newMessages.length - 1].id !== messages[messages.length - 1].id)
+      
+      if (hasNewMessages || !isBackgroundRefresh) {
+        setMessages(newMessages)
+        
+        // Auto-scroll to bottom if new messages arrived
+        if (hasNewMessages && newMessages.length > messages.length) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+          }, 100)
+        }
+      }
       
       const conversation = await getConversation(conversationId);
       setContactName(conversation?.senderName || conversation?.sender || "Contact");
-      // Analyze conversation
-      if (data.messages && data.messages.length > 0) {
-        analyzeConversation(conversationId, data.messages);
-        
+      
+      // Analyze conversation (only on initial load or significant changes)
+      if (newMessages.length > 0 && (!isBackgroundRefresh || hasNewMessages)) {
+        analyzeConversation(conversationId, newMessages);
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
     } finally {
-      setLoading(false)
+      if (!isBackgroundRefresh) {
+        setLoading(false)
+      }
     }
   }
 

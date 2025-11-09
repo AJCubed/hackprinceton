@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, Bell, MessageSquare } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn, normalizeChatId } from "@/lib/utils"
@@ -29,35 +29,72 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [analyses, setAnalyses] = useState<Map<string, ConversationAnalysis> | null>(null)
   const [loading, setLoading] = useState(true)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
-    fetchConversations()
+    const loadConversations = async () => {
+      await fetchConversations()
+      
+      // Set up polling for new conversations/messages every 5 seconds
+      pollingIntervalRef.current = setInterval(() => {
+        fetchConversations(true) // Pass true to indicate this is a background refresh
+      }, 5000)
+    }
     
+    loadConversations()
+    
+    // Cleanup interval on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
 
 
-  const fetchConversations = async () => {
+  const fetchConversations = async (isBackgroundRefresh = false) => {
+    // Only show loading spinner on initial load, not on background refreshes
+    if (!isBackgroundRefresh) {
+      setLoading(true)
+    }
     try {
       const response = await fetch('/api/conversations')
       const data = await response.json()
       // Ensure null text values are converted to empty strings
-      const conversations = (data.conversations || []).map((conv: Conversation) => ({
+      const newConversations = (data.conversations || []).map((conv: Conversation) => ({
         ...conv,
         lastMessage: {
           ...conv.lastMessage,
           text: conv.lastMessage.text ?? ''
         }
       }))
-      setConversations(conversations)
-      onSelectConversation(conversations[0].chatId);
-      const analyses = await getConversationAnalyses((data.conversations || []).map((conv: Conversation) => conv.chatId))
-      setAnalyses(analyses)
-      console.log('Analyses Map', analyses)
+      
+      // Only update if conversations have changed (to avoid unnecessary re-renders)
+      const hasChanges = JSON.stringify(newConversations) !== JSON.stringify(conversations) ||
+        newConversations.length !== conversations.length
+      
+      if (hasChanges || !isBackgroundRefresh) {
+        setConversations(newConversations)
+        
+        // Only auto-select first conversation on initial load
+        if (!isBackgroundRefresh && newConversations.length > 0 && !selectedConversation) {
+          onSelectConversation(newConversations[0].chatId)
+        }
+      }
+      
+      // Update analyses (only on initial load or if conversations changed)
+      if (!isBackgroundRefresh || hasChanges) {
+        const analyses = await getConversationAnalyses((data.conversations || []).map((conv: Conversation) => conv.chatId))
+        setAnalyses(analyses)
+      }
     } catch (error) {
       console.error('Error fetching conversations:', error)
     } finally {
-      setLoading(false)
+      if (!isBackgroundRefresh) {
+        setLoading(false)
+      }
     }
   }
 
