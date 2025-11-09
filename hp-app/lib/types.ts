@@ -31,8 +31,8 @@ export const ConversationAnalysisSchema = z.object({
     recommendations: z.array(z.object({
         title: z.string().describe("The title of the recommendation"),
         description: z.string().describe("The description of the recommendation. Keep it short and concise, roughly 1-2 sentences."),
-        next_message: z.string().describe("An optional next message to send to the contact").optional(),
-        next_action: z.string().describe("An optional next action to take, either 'Create reminder for ...' or 'Create calendar event for ...'. Try to be as helpful as possible, but don't make unescessary actions. Create actions whereever possible.").optional(),
+        next_message: z.string().describe("An optional next message to send to the contact, from the user's perspective.").optional(),
+        next_action: z.string().describe("An optional next action to take, such as 'Create reminder', 'Create calendar event', etc. Try to be as helpful as possible and helpful to the user. Create actions whereever possible.").optional(),
     })).describe("The recommended next steps for the conversation, such as 'Follow up', 'Propose plan', 'Check in', 'Respond to recent message', etc."),
     notes: z.string().describe("The notes for how the conversation impacts the mental health of the user. This is for conversation summarization, not for the user, so be specific.  "),
     relationship_type: z.string().describe("The relationship type of the conversation between the two people.  Keep it short and concise, roughly 1-2 words."),

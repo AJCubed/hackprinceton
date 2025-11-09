@@ -69,11 +69,34 @@ function initializeSchema() {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS sent_messages (
+      -- Primary key: unique message ID (we'll generate this)
+      id TEXT PRIMARY KEY,
+      
+      -- Conversation identifiers (can match either chatId or sender)
+      chat_id TEXT,
+      sender TEXT NOT NULL,
+      
+      -- Message content
+      text TEXT NOT NULL,
+      
+      -- Message metadata
+      date TEXT NOT NULL,
+      is_from_me INTEGER DEFAULT 1,
+      is_read INTEGER DEFAULT 1,
+      
+      -- Timestamps
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Indexes for performance
     CREATE INDEX IF NOT EXISTS idx_sender ON conversations(sender);
     CREATE INDEX IF NOT EXISTS idx_updated_at ON conversations(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_wellness_date ON wellness_evals(date DESC);
     CREATE INDEX IF NOT EXISTS idx_wellness_score ON wellness_evals(wellness_score);
+    CREATE INDEX IF NOT EXISTS idx_sent_messages_chat_id ON sent_messages(chat_id);
+    CREATE INDEX IF NOT EXISTS idx_sent_messages_sender ON sent_messages(sender);
+    CREATE INDEX IF NOT EXISTS idx_sent_messages_date ON sent_messages(date DESC);
   `)
 
   console.log('[DB] Database initialized at:', DB_PATH)
@@ -403,6 +426,100 @@ export async function getTodayWellnessEvaluation(): Promise<WellnessEvalRecord |
   const today = new Date()
   const dateStr = today.toISOString().split('T')[0] // YYYY-MM-DD format
   return getWellnessEvaluation(dateStr)
+}
+
+// Store a sent message
+export async function storeSentMessage(data: {
+  chatId?: string
+  sender: string
+  text: string
+  date?: Date
+}): Promise<string> {
+  const database = getDatabase()
+
+  try {
+    // Generate a unique message ID (timestamp-based)
+    const messageId = `sent_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    const date = data.date || new Date()
+    const dateStr = date.toISOString()
+    
+    const normalizedChatId = data.chatId ? normalizeChatId(data.chatId) : null
+    const normalizedSender = normalizeChatId(data.sender)
+    
+    console.log('[DB] Storing sent message:', { messageId, chatId: normalizedChatId, sender: normalizedSender, textLength: data.text.length })
+    
+    const stmt = database.prepare(`
+      INSERT INTO sent_messages (
+        id, chat_id, sender, text, date, is_from_me, is_read
+      ) VALUES (
+        ?, ?, ?, ?, ?, 1, 1
+      )
+    `)
+
+    stmt.run(
+      messageId,
+      normalizedChatId,
+      normalizedSender,
+      data.text,
+      dateStr
+    )
+    
+    console.log('[DB] Sent message stored successfully')
+    return messageId
+  } catch (error) {
+    console.error('[DB] Error storing sent message:', error)
+    throw error
+  }
+}
+
+// Get sent messages for a conversation
+export async function getSentMessages(chatId?: string, sender?: string, since?: Date): Promise<Array<{
+  id: string
+  text: string
+  sender: string
+  date: string
+  isFromMe: boolean
+  isRead: boolean
+}>> {
+  const database = getDatabase()
+
+  try {
+    let query = 'SELECT id, chat_id, sender, text, date, is_from_me, is_read FROM sent_messages WHERE 1=1'
+    const params: any[] = []
+    
+    if (chatId) {
+      const normalizedChatId = normalizeChatId(chatId)
+      query += ' AND (chat_id = ? OR sender = ?)'
+      params.push(normalizedChatId, normalizedChatId)
+    }
+    
+    if (sender && !chatId) {
+      query += ' AND sender = ?'
+      params.push(normalizeChatId(sender))
+    }
+    
+    if (since) {
+      query += ' AND date >= ?'
+      params.push(since.toISOString())
+    }
+    
+    query += ' ORDER BY date ASC'
+    
+    const stmt = database.prepare(query)
+    const rows = stmt.all(...params) as any[]
+    
+    return rows.map(row => ({
+      id: row.id,
+      text: row.text,
+      sender: row.sender,
+      date: row.date,
+      isFromMe: Boolean(row.is_from_me),
+      isRead: Boolean(row.is_read)
+    }))
+  } catch (error) {
+    console.error('[DB] Error getting sent messages:', error)
+    return []
+  }
 }
 
 // Close database connection (for cleanup)

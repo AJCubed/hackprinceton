@@ -115,16 +115,42 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
   const handleSend = async () => {
     if (!inputValue.trim()) return
 
+    const messageText = inputValue.trim()
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+    
+    // Optimistically add the message to the UI immediately
+    const optimisticMessage: Message = {
+      id: tempId,
+      text: messageText,
+      sender: conversationId,
+      senderName: null,
+      date: new Date().toISOString(),
+      isFromMe: true,
+      isRead: true
+    }
+    
+    setMessages(prev => [...prev, optimisticMessage])
+    setInputValue("")
+    
+    // Scroll to bottom to show the new message
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, 0)
+
     try {
-      await fetch(`/api/messages?recipient=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(inputValue)}`, {
+      await fetch(`/api/messages?recipient=${encodeURIComponent(conversationId)}&message=${encodeURIComponent(messageText)}`, {
         method: 'POST'
       })
       
-      // Refresh messages after sending
-      fetchMessages()
-      setInputValue("")
+      // Refresh messages in background (without showing loading screen)
+      // This will replace the optimistic message with the real one from the server
+      fetchMessages(true)
     } catch (error) {
       console.error('Error sending message:', error)
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== tempId))
+      // Restore the input value so user can retry
+      setInputValue(messageText)
     }
   }
 
