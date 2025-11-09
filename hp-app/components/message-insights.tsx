@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { TrendingUp, Users, Clock, Zap, Frown, Meh, Smile, Send } from "lucide-react"
+import { TrendingUp, Users, Clock, Zap, Frown, Meh, Smile, Send, Loader2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getConversationAnalysis } from "@/lib/db"
 import { ConversationAnalysis } from "@/lib/types"
+import { getDedalusResponse } from "@/lib/dedalus-communication"
 
 interface MessageInsightsProps {
   conversationId: string
@@ -15,6 +16,11 @@ interface MessageInsightsProps {
 export function MessageInsights({ conversationId, onSuggestMessage }: MessageInsightsProps) {
   const [analysis, setAnalysis] = useState<ConversationAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
+  const [completedActions, setCompletedActions] = useState<Map<number, string>>(new Map())
+  const [processingActions, setProcessingActions] = useState<Set<number>>(new Set())
+
+
+
 
   useEffect(() => {
     async function fetchAnalysis() {
@@ -50,6 +56,32 @@ export function MessageInsights({ conversationId, onSuggestMessage }: MessageIns
     )
   }
 
+  async function handleCompleteAction(index: number, action: string) {
+    try {
+      console.log('Action:', action)
+      // Mark as processing
+      setProcessingActions(prev => new Set(prev).add(index))
+      
+      // Get response from Dedalus
+      const description = await getDedalusResponse(action)
+      
+      // Update completed actions with the response
+      setCompletedActions(prev => {
+        const newMap = new Map(prev)
+        newMap.set(index, description)
+        return newMap
+      })
+    } catch (error) {
+      console.error('Error completing action:', error)
+    } finally {
+      // Remove from processing
+      setProcessingActions(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(index)
+        return newSet
+      })
+    }
+  }
   
   const { sentiment, positivity_score, recommendations, notes, relationship_type } = analysis
   
@@ -172,6 +204,49 @@ export function MessageInsights({ conversationId, onSuggestMessage }: MessageIns
                               <Send className="w-3 h-3" />
                               Use this message
                             </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {rec.next_action && (
+                        <div className="mt-2 space-y-2">
+                          {completedActions.has(index) ? (
+                            // Show completion summary
+                            <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900/30">
+                              <p className="text-xs font-semibold text-green-900 dark:text-green-300 mb-1">
+                                ✓ Action Completed
+                              </p>
+                              <p className="text-xs text-green-700 dark:text-green-400">
+                                {completedActions.get(index)}
+                              </p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="p-2 bg-background/50 rounded border border-border/50">
+                                <p className="text-xs text-muted-foreground">
+                                  {rec.next_action}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="w-full gap-2 text-xs h-7"
+                                onClick={() => handleCompleteAction(index, rec.next_action!)}
+                                disabled={processingActions.has(index)}
+                              >
+                                {processingActions.has(index) ? (
+                                  <>
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Zap className="w-3 h-3" />
+                                    Complete action
+                                  </>
+                                )}
+                              </Button>
+                            </>
                           )}
                         </div>
                       )}
