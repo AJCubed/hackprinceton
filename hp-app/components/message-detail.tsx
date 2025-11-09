@@ -8,6 +8,7 @@ import { MessageInsights } from "@/components/message-insights"
 import { AIAssistant } from "@/components/ai-assistant"
 import { Message } from "../lib/types"
 import { analyzeConversation } from "@/lib/conversation-analysis"
+import { getConversation } from "@/lib/db"
 
 
 interface MessageDetailProps {
@@ -59,12 +60,8 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
       
       setMessages(data.messages || [])
       
-      // Set contact name from first message
-      if (data.messages && data.messages.length > 0) {
-        const firstMessage = data.messages[0]
-        setContactName(firstMessage.senderName || firstMessage.sender)
-      }
-
+      const conversation = await getConversation(conversationId);
+      setContactName(conversation?.senderName || conversation?.sender || "Contact");
       // Analyze conversation
       if (data.messages && data.messages.length > 0) {
         analyzeConversation(conversationId, data.messages);
