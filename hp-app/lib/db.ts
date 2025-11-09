@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { ConversationAnalysis } from './types'
+import { normalizeChatId } from './utils'
 
 // Database path - stored in the app directory
 const DB_DIR = join(process.cwd(), 'data')
@@ -67,7 +68,7 @@ export interface ConversationRecord {
   birthday: string | null
   organization: string | null
   jobTitle: string | null
-  aiSummary: ConversationAnalysis | null
+  aiAnalysis: ConversationAnalysis | null
   userNotes: string | null // turn into object later when llm taking in notes
   createdAt: string
   updatedAt: string
@@ -85,6 +86,12 @@ export function upsertConversationContact(data: {
   const database = getDatabase()
 
   try {
+    const normalizedChatId = normalizeChatId(data.chatId)
+    const normalizedSender = normalizeChatId(data.sender)
+    
+    console.log('[DB] Upserting conversation contact')
+    console.log('[DB] Original chatId:', data.chatId, '-> Normalized:', normalizedChatId)
+    
     const stmt = database.prepare(`
       INSERT INTO conversations (
         chat_id, sender, sender_name, birthday, organization, job_title, updated_at
@@ -99,16 +106,19 @@ export function upsertConversationContact(data: {
         updated_at = datetime('now')
     `)
 
-    stmt.run(
-      data.chatId,
-      data.sender,
+    const result = stmt.run(
+      normalizedChatId,
+      normalizedSender,
       data.senderName || null,
       data.birthday || null,
       data.organization || null,
       data.jobTitle || null
     )
+    
+    console.log('[DB] Upsert result:', { changes: result.changes, lastInsertRowid: result.lastInsertRowid })
   } catch (error) {
     console.error('[DB] Error upserting conversation contact:', error)
+    throw error
   }
 }
 
@@ -117,6 +127,10 @@ export function getConversation(chatId: string): ConversationRecord | null {
   const database = getDatabase()
 
   try {
+    const normalizedChatId = normalizeChatId(chatId)
+    console.log('[DB] Getting conversation')
+    console.log('[DB] Original chatId:', chatId, '-> Normalized:', normalizedChatId)
+    
     const stmt = database.prepare(`
       SELECT 
         chat_id as chatId,
@@ -133,7 +147,18 @@ export function getConversation(chatId: string): ConversationRecord | null {
       WHERE chat_id = ?
     `)
 
-    const row = stmt.get(chatId) as any
+    const row = stmt.get(normalizedChatId) as any
+    
+    console.log('[DB] Query result:', row ? 'Found record' : 'No record found')
+    if (row) {
+      console.log('[DB] Record details:', {
+        chatId: row.chatId,
+        senderName: row.senderName,
+        hasAiAnalysis: !!row.aiAnalysis,
+        // aiAnalysisLength: row.aiAnalysis?.length || 0,
+        // hasUserNotes: !!row.userNotes
+      })
+    }
 
     if (!row) return null
 
@@ -153,15 +178,35 @@ export function updateAIAnalysis(chatId: string, aiAnalysis: ConversationAnalysi
   const database = getDatabase()
 
   try {
-    const stmt = database.prepare(`
-      UPDATE conversations
-      SET ai_analysis = ?, updated_at = datetime('now')
-      WHERE chat_id = ?
+    const normalizedChatId = normalizeChatId(chatId)
+    console.log('[DB] Updating AI analysis')
+    console.log('[DB] Original chatId:', chatId, '-> Normalized:', normalizedChatId)
+    console.log('[DB] Analysis data:', JSON.stringify(aiAnalysis, null, 2))
+    
+    // First, check if the conversation exists
+    const checkStmt = database.prepare('SELECT chat_id FROM conversations WHERE chat_id = ?')
+    const exists = checkStmt.get(normalizedChatId)
+    
+    console.log('[DB] Conversation exists?', !!exists)
+    
+    // Update existing record
+    const updateStmt = database.prepare(`
+    UPDATE conversations
+    SET ai_analysis = ?, updated_at = datetime('now')
+    WHERE chat_id = ?
     `)
-
-    stmt.run(JSON.stringify(aiAnalysis), chatId)
+    const result = updateStmt.run(JSON.stringify(aiAnalysis), normalizedChatId)
+    console.log('[DB] Update result:', { changes: result.changes })
+    
+    // Verify the save
+    const verifyStmt = database.prepare('SELECT ai_analysis FROM conversations WHERE chat_id = ?')
+    const saved = verifyStmt.get(normalizedChatId) as any
+    console.log('[DB] Verification - analysis saved?', !!saved?.ai_analysis)
+    console.log('[DB] Verification - analysis length:', saved?.ai_analysis?.length || 0)
+    
   } catch (error) {
     console.error('[DB] Error updating AI analysis:', error)
+    throw error // Re-throw to see the full error
   }
 }
 
@@ -170,15 +215,21 @@ export function updateUserNotes(chatId: string, userNotes: string): void {
   const database = getDatabase()
 
   try {
+    const normalizedChatId = normalizeChatId(chatId)
+    console.log('[DB] Updating user notes')
+    console.log('[DB] Original chatId:', chatId, '-> Normalized:', normalizedChatId)
+    
     const stmt = database.prepare(`
       UPDATE conversations
       SET user_notes = ?, updated_at = datetime('now')
       WHERE chat_id = ?
     `)
 
-    stmt.run(userNotes, chatId)
+    const result = stmt.run(userNotes, normalizedChatId)
+    console.log('[DB] User notes update result:', { changes: result.changes })
   } catch (error) {
     console.error('[DB] Error updating user notes:', error)
+    throw error
   }
 }
 
