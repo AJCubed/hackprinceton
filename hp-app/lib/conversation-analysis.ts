@@ -44,7 +44,7 @@ export async function analyzeConversation(
     .map(message => `${message.isFromMe ? 'You' : message.senderName || message.sender}: ${message.text || '(media/attachment)'} ${message.date}`)
     .join('\n');
 
-  const prompt = `Analyze the following conversation and provide insights in accordance with the schema provided.
+  const prompt = `Analyze the following conversation and provide insights in accordance with the schema provided. Keep your analysis as positive as possible. Keep criticism constructive. 
   ${contextPrompt}
   --------------------------------
   Recent Conversation:

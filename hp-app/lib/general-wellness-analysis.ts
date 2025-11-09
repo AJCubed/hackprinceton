@@ -21,7 +21,7 @@ export async function analyzeGeneralWellness(): Promise<GeneralWellnessAnalysis>
     `).join('\n');
     
     //build prompt
-    const prompt = `Analyze the following Conversation Analyses and provide a general wellness analysis in accordance with the schema provided. The current date is ${new Date().toISOString()}. ${contextPrompt}`;
+    const prompt = `Analyze the following Conversation Analyses and provide a general communication and mental wellness analysis in accordance with the schema provided. Keep your analysis as positive as possible. Keep criticism constructive. don't reach medical conclusions and don't make recommendations for medical treatment. The current date is ${new Date().toISOString()}. ${contextPrompt}`;
 
   const {object, warnings, response} = await generateObject({
     model: anthropic('claude-haiku-4-5'),
