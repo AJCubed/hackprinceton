@@ -3,7 +3,7 @@
 import Database from 'better-sqlite3'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
-import { ConversationAnalysis } from './types'
+import { ConversationAnalysis, GeneralWellnessAnalysis } from './types'
 import { normalizeChatId } from './utils'
 
 // Database path - stored in the app directory
@@ -54,9 +54,26 @@ function initializeSchema() {
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS wellness_evals (
+      -- Primary key: date in YYYY-MM-DD format
+      date TEXT PRIMARY KEY,
+      
+      -- Wellness score for easy access (0-100)
+      wellness_score INTEGER NOT NULL,
+      
+      -- Full analysis as JSON
+      analysis TEXT NOT NULL,
+      
+      -- Timestamp
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Indexes for performance
     CREATE INDEX IF NOT EXISTS idx_sender ON conversations(sender);
     CREATE INDEX IF NOT EXISTS idx_updated_at ON conversations(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_wellness_date ON wellness_evals(date DESC);
+    CREATE INDEX IF NOT EXISTS idx_wellness_score ON wellness_evals(wellness_score);
   `)
 
   console.log('[DB] Database initialized at:', DB_PATH)
@@ -72,6 +89,14 @@ export interface ConversationRecord {
   jobTitle: string | null
   aiAnalysis: ConversationAnalysis | null
   userNotes: string | null // turn into object later when llm taking in notes
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WellnessEvalRecord {
+  date: string // YYYY-MM-DD format
+  wellnessScore: number
+  analysis: GeneralWellnessAnalysis
   createdAt: string
   updatedAt: string
 }
@@ -297,6 +322,87 @@ export async function getAllConversations(limit = 100): Promise<ConversationReco
     console.error('[DB] Error getting all conversations:', error)
     return []
   }
+}
+
+// Upsert wellness evaluation for current date
+export async function upsertWellnessEvaluation(analysis: GeneralWellnessAnalysis): Promise<void> {
+  const database = getDatabase()
+
+  try {
+    // Get current date in YYYY-MM-DD format
+    const today = new Date()
+    const dateStr = today.toISOString().split('T')[0] // YYYY-MM-DD format
+    
+    console.log('[DB] Upserting wellness evaluation for date:', dateStr)
+    console.log('[DB] Wellness score:', analysis.wellness_score)
+    
+    const stmt = database.prepare(`
+      INSERT INTO wellness_evals (
+        date, wellness_score, analysis, updated_at
+      ) VALUES (
+        ?, ?, ?, datetime('now')
+      )
+      ON CONFLICT(date) DO UPDATE SET
+        wellness_score = excluded.wellness_score,
+        analysis = excluded.analysis,
+        updated_at = datetime('now')
+    `)
+
+    const result = stmt.run(
+      dateStr,
+      analysis.wellness_score,
+      JSON.stringify(analysis)
+    )
+    
+    console.log('[DB] Wellness evaluation upsert result:', { changes: result.changes, lastInsertRowid: result.lastInsertRowid })
+  } catch (error) {
+    console.error('[DB] Error upserting wellness evaluation:', error)
+    throw error
+  }
+}
+
+// Get wellness evaluation by date (YYYY-MM-DD format)
+export async function getWellnessEvaluation(date: string): Promise<WellnessEvalRecord | null> {
+  const database = getDatabase()
+
+  try {
+    console.log('[DB] Getting wellness evaluation for date:', date)
+    
+    const stmt = database.prepare(`
+      SELECT 
+        date,
+        wellness_score as wellnessScore,
+        analysis,
+        created_at as createdAt,
+        updated_at as updatedAt
+      FROM wellness_evals
+      WHERE date = ?
+    `)
+
+    const row = stmt.get(date) as any
+    
+    console.log('[DB] Wellness evaluation query result:', row ? 'Found record' : 'No record found')
+    
+    if (!row) return null
+
+    return {
+      date: row.date,
+      wellnessScore: row.wellnessScore,
+      analysis: JSON.parse(row.analysis),
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }
+  } catch (error) {
+    console.error('[DB] Error getting wellness evaluation:', error)
+    return null
+  }
+}
+
+// Get wellness evaluation for today
+export async function getTodayWellnessEvaluation(): Promise<WellnessEvalRecord | null> {
+  const today = new Date()
+  const dateStr = today.toISOString().split('T')[0] // YYYY-MM-DD format
+  return getWellnessEvaluation(dateStr)
 }
 
 // Close database connection (for cleanup)
