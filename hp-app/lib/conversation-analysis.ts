@@ -58,9 +58,7 @@ export async function analyzeConversation(
     prompt,
   });
 
-  console.log('[Analysis] Conversation Object:', object);
-  console.log('[Analysis] Warnings:', warnings);
-  console.log('[Analysis] Response:', response);
+  
 
   // Write analysis results back to database
   try {

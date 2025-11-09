@@ -25,15 +25,23 @@ export async function GET() {
     // Load contacts
     await ensureContactsLoaded()
 
+    // Calculate date from two weeks ago
+    const twoWeeksAgo = new Date()
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+
     // Get recent messages (limit to 1000 to get a good sample)
     const result = await sdk.getMessages({
       excludeOwnMessages: false,
-      limit: 1000
+      limit: 1000,
+      since: twoWeeksAgo
     })
     
     // Convert readonly array to regular array
-    const messagesArray: Message[] = Array.from(result.messages as readonly Message[])
+    let messagesArray: Message[] = Array.from(result.messages as readonly Message[])
     
+    //filter out group chats
+    messagesArray = messagesArray.filter(message => !message.isGroupChat);
+
     // Group messages by sender (chatId)
     const conversationsMap = new Map<string, {
       chatId: string

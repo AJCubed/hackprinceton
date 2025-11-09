@@ -32,10 +32,15 @@ export async function GET(request: NextRequest) {
   const sdk = await getSDK()
   
   try {
+    // Calculate date from two weeks ago
+    const twoWeeksAgo = new Date()
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+    
     const filter: any = {
       excludeOwnMessages: false,
       limit: 100,
-      since: new Date('2025-01-01')
+      since: twoWeeksAgo,
+      
     }
     
     if (chatId) {

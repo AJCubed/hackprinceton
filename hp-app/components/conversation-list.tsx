@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react"
 import { Search, Bell, MessageSquare } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import { cn, normalizeChatId } from "@/lib/utils"
+import { ConversationAnalysis } from "@/lib/types"
+import { getConversationAnalyses } from "@/lib/db"
 
 interface Conversation {
   chatId: string
@@ -25,11 +27,15 @@ interface ConversationListProps {
 export function ConversationList({ selectedConversation, onSelectConversation }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [analyses, setAnalyses] = useState<Map<string, ConversationAnalysis> | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchConversations()
+    
   }, [])
+
+
 
   const fetchConversations = async () => {
     try {
@@ -44,12 +50,18 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
         }
       }))
       setConversations(conversations)
+
+      const analyses = await getConversationAnalyses((data.conversations || []).map((conv: Conversation) => conv.chatId))
+      setAnalyses(analyses)
+      console.log('Analyses Map', analyses)
     } catch (error) {
       console.error('Error fetching conversations:', error)
     } finally {
       setLoading(false)
     }
   }
+
+ 
 
   const filteredConversations = conversations.filter(
     (conv) =>
@@ -82,31 +94,20 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
     }
   }
 
-  const getSentiment = (text: string | null): "positive" | "neutral" | "negative" => {
-    // Handle null/undefined text
-    if (!text) return "neutral"
-    
-    // Simple sentiment analysis based on keywords
-    const positiveWords = ['love', 'great', 'amazing', 'awesome', 'good', 'thanks', 'thank you', '😂', '😊', '❤️', '!']
-    const negativeWords = ['sorry', 'unfortunately', 'problem', 'issue', 'bad', 'not sure', 'no', 'can\'t']
-    
-    const lowerText = text.toLowerCase()
-    const hasPositive = positiveWords.some(word => lowerText.includes(word))
-    const hasNegative = negativeWords.some(word => lowerText.includes(word))
-    
-    if (hasPositive && !hasNegative) return "positive"
-    if (hasNegative && !hasPositive) return "negative"
-    return "neutral"
+  
+  const getSentiment = (chatId: string) => {
+    const analysis = analyses?.get(normalizeChatId(chatId))
+    return analysis?.sentiment || "unknown"
   }
-
-  const getSentimentColor = (sentiment: string) => {
-    switch (sentiment) {
-      case "positive":
+  const getSentimentColor = (chatId: string) => {
+    const analysis = analyses?.get(normalizeChatId(chatId));
+    const positivityScore = analysis?.positivity_score || 0;
+    if (positivityScore > 30) {
         return "text-green-600 dark:text-green-400"
-      case "negative":
-        return "text-red-600 dark:text-red-400"
-      default:
-        return "text-muted-foreground"
+    } else if (positivityScore < -30) {
+      return "text-red-600 dark:text-red-400"
+    } else {
+      return "text-muted-foreground"
     }
   }
 
@@ -147,11 +148,11 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
             <p className="text-muted-foreground">No conversations found</p>
           </div>
         ) : (
-          filteredConversations.map((conversation) => {
+          (filteredConversations).map((conversation) => {
             const displayName = conversation.senderName || conversation.sender
-            const sentiment = getSentiment(conversation.lastMessage.text)
+            const sentiment = getSentiment(conversation.chatId);
             const conversationKey = conversation.chatId || conversation.sender
-            
+            const sentimentColor = getSentimentColor(conversation.chatId);
             return (
               <button
                 key={conversationKey}
@@ -187,8 +188,8 @@ export function ConversationList({ selectedConversation, onSelectConversation }:
 
                     {/* Sentiment Indicator */}
                     <div className="flex gap-1 mt-2">
-                      <MessageSquare className={cn("w-3 h-3", getSentimentColor(sentiment))} />
-                      <span className={cn("text-xs capitalize", getSentimentColor(sentiment))}>
+                      <MessageSquare className={cn("w-3 h-3", sentimentColor)} />
+                      <span className={cn("text-xs capitalize", sentimentColor)}>
                         {sentiment}
                       </span>
                     </div>

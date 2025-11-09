@@ -57,7 +57,7 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
       // Analyze conversation
       if (data.messages && data.messages.length > 0) {
         const analysis = await analyzeConversation(conversationId, data.messages)
-        console.log('[MessageDetail] Analysis:', analysis);
+        
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
