@@ -111,12 +111,12 @@ export function MessageDetail({ conversationId }: MessageDetailProps) {
           <h2 className="text-lg font-semibold text-foreground">{contactName}</h2>
           <p className="text-xs text-muted-foreground">{messages.length} messages</p>
         </div>
-        <Button variant="ghost" size="icon">
+        {/* <Button variant="ghost" size="icon">
           <Sparkles className="w-5 h-5 text-primary" />
-        </Button>
+        </Button> */}
       </div>
 
-      <div className="flex-1 flex overflow-hidden gap-4">
+      <div className="flex-1 flex overflow-hidden gap-2">
         {/* Messages */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Message Thread */}

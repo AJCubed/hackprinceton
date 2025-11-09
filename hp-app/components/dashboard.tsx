@@ -237,13 +237,27 @@ export function Dashboard({ onContactClick }: DashboardProps = {} as DashboardPr
                 <XAxis dataKey="day" stroke="var(--color-muted-foreground)" />
                 <YAxis stroke="var(--color-muted-foreground)" />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="rounded-lg border-2 border-border bg-popover p-3 shadow-2xl backdrop-blur-sm">
+                          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-popover-foreground">
+                            {label}
+                          </p>
+                          <p className="text-sm font-semibold text-popover-foreground">
+                            {payload[0].value} messages
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
                   }}
-                  cursor={{ fill: "rgba(0, 0, 0, 0.05)" }}
+                  cursor={{ 
+                    fill: "rgba(0, 0, 0, 0.06)", 
+                    stroke: "hsl(var(--border))", 
+                    strokeWidth: 2,
+                    strokeDasharray: "4 4",
+                  }}
                 />
                 <Bar dataKey="messages" fill="var(--color-primary)" radius={[8, 8, 0, 0]} />
               </BarChart>
